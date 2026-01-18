@@ -1,0 +1,56 @@
+:root {
+  /* Nuanced Color Palette - Premium Feel */
+  --color-bg-mesh-1: #f0f4ff;
+  --color-bg-mesh-2: #ffeef2;
+  --color-bg-mesh-3: #fdfbf7;
+
+  --color-primary: #2d3436;
+  --color-primary-light: #636e72;
+  --color-accent-blue: #0984e3;
+  --color-accent-blue-soft: #74b9ff;
+  --color-accent-red: #d63031;
+  --color-accent-red-soft: #ff7675;
+  --color-accent-green: #00b894;
+  --color-accent-gold: #fdcb6e;
+  
+  --color-text-main: #2d3436;
+  --color-text-sub: #636e72;
+  --color-text-muted: #b2bec3;
+
+  /* Glassmorphism Variables */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.4);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  --glass-blur: blur(12px);
+  
+  --card-radius: 20px;
+  --btn-radius: 12px;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Graph Colors */
+  --chart-income: #0984e3;
+  --chart-expense-tax: #ff7675;
+  --chart-expense-housing: #fdcb6e;
+  --chart-expense-living: #00b894;
+  --chart-asset-pos: rgba(9, 132, 227, 0.1);
+  --chart-asset-neg: rgba(214, 48, 49, 0.1);
+}
+
+[data-theme='dark'] {
+  /* Dark mode overrides would go here, focusing on deep blues/grays */
+  --color-bg-mesh-1: #1a1b1e;
+  --color-bg-mesh-2: #2d3436;
+  --color-bg-mesh-3: #1e272e;
+  
+  --glass-bg: rgba(30, 39, 46, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --color-text-main: #dfe6e9;
+  --color-text-sub: #b2bec3;
+}

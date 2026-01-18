@@ -1,0 +1,696 @@
+import {
+    FamilyMember,
+    Income,
+    SalaryIncome,
+    PensionIncome,
+    RetirementIncome,
+    InvestmentIncome,
+    OtherIncome,
+    Expense,
+    HousingExpense,
+    EducationExpense,
+    TaxExpense,
+    InsuranceExpense,
+    CarExpense,
+    AllowanceExpense,
+    LivingExpense,
+    UtilityExpense,
+    CommunicationExpense,
+    MedicalExpense,
+    GenericExpense,
+    Asset,
+    LifeEvent,
+    SimulationSettings,
+    YearlyResult,
+    FamilyAges,
+    EDUCATION_COSTS,
+    PENSION_CONSTANTS,
+    VariableRatePeriod
+} from './types';
+
+// 教育段階を取得
+function getEducationStage(age: number): string {
+    if (age < 3) return '未就学';
+    if (age < 6) return '幼稚園';
+    if (age < 12) return '小学校';
+    if (age < 15) return '中学校';
+    if (age < 18) return '高校';
+    if (age < 22) return '大学';
+    return '卒業';
+}
+
+// 年齢別給与を補間計算
+function interpolateSalary(ageCurve: { age: number; annualAmount: number }[], age: number): number {
+    if (ageCurve.length === 0) return 0;
+    if (ageCurve.length === 1) return ageCurve[0].annualAmount;
+
+    // ソート
+    const sorted = [...ageCurve].sort((a, b) => a.age - b.age);
+
+    // 範囲外
+    if (age <= sorted[0].age) return sorted[0].annualAmount;
+    if (age >= sorted[sorted.length - 1].age) return sorted[sorted.length - 1].annualAmount;
+
+    // 線形補間
+    for (let i = 0; i < sorted.length - 1; i++) {
+        if (age >= sorted[i].age && age < sorted[i + 1].age) {
+            const ratio = (age - sorted[i].age) / (sorted[i + 1].age - sorted[i].age);
+            return sorted[i].annualAmount + (sorted[i + 1].annualAmount - sorted[i].annualAmount) * ratio;
+        }
+    }
+    return sorted[sorted.length - 1].annualAmount;
+}
+
+// 年金額を計算
+function calculatePension(pension: PensionIncome, age: number): number {
+    if (age < pension.startAge) return 0;
+
+    if (pension.pensionType === 'custom' && pension.customAmount) {
+        return pension.customAmount;
+    }
+
+    let total = 0;
+
+    // 国民年金（老齢基礎年金）
+    if (pension.nationalPensionYears) {
+        const ratio = Math.min(pension.nationalPensionYears, PENSION_CONSTANTS.nationalPensionMaxYears) 
+                      / PENSION_CONSTANTS.nationalPensionMaxYears;
+        total += PENSION_CONSTANTS.nationalPensionFullAmount * ratio;
+    }
+
+    // 厚生年金（報酬比例部分）
+    if (pension.employeePensionYears && pension.averageMonthlyIncome) {
+        total += pension.averageMonthlyIncome * PENSION_CONSTANTS.employeePensionMultiplier 
+                 * pension.employeePensionYears * 12;
+    }
+
+    // 企業年金
+    if (pension.hasCorporatePension && pension.corporatePensionAmount) {
+        total += pension.corporatePensionAmount;
+    }
+
+    return total;
+}
+
+// 住宅ローン年間返済額を計算（元利均等返済）
+function calculateMortgagePayment(
+    loanAmount: number,
+    interestRate: number,
+    loanYears: number
+): number {
+    if (interestRate === 0) {
+        return loanAmount / loanYears;
+    }
+    const monthlyRate = interestRate / 100 / 12;
+    const totalMonths = loanYears * 12;
+    const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) 
+                           / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+    return monthlyPayment * 12;
+}
+
+// 所得税を計算（累進課税）
+function calculateIncomeTax(annualIncome: number): number {
+    // 給与所得控除を適用
+    let salaryDeduction = 0;
+    if (annualIncome <= 1625000) {
+        salaryDeduction = 550000;
+    } else if (annualIncome <= 1800000) {
+        salaryDeduction = annualIncome * 0.4 - 100000;
+    } else if (annualIncome <= 3600000) {
+        salaryDeduction = annualIncome * 0.3 + 80000;
+    } else if (annualIncome <= 6600000) {
+        salaryDeduction = annualIncome * 0.2 + 440000;
+    } else if (annualIncome <= 8500000) {
+        salaryDeduction = annualIncome * 0.1 + 1100000;
+    } else {
+        salaryDeduction = 1950000; // 上限
+    }
+    salaryDeduction = Math.max(salaryDeduction, 550000); // 最低55万円
+
+    // 課税所得
+    const taxableIncome = Math.max(0, annualIncome - salaryDeduction - 480000); // 基礎控除48万円
+
+    // 累進課税
+    let tax = 0;
+    if (taxableIncome <= 1950000) {
+        tax = taxableIncome * 0.05;
+    } else if (taxableIncome <= 3300000) {
+        tax = taxableIncome * 0.10 - 97500;
+    } else if (taxableIncome <= 6950000) {
+        tax = taxableIncome * 0.20 - 427500;
+    } else if (taxableIncome <= 9000000) {
+        tax = taxableIncome * 0.23 - 636000;
+    } else if (taxableIncome <= 18000000) {
+        tax = taxableIncome * 0.33 - 1536000;
+    } else if (taxableIncome <= 40000000) {
+        tax = taxableIncome * 0.40 - 2796000;
+    } else {
+        tax = taxableIncome * 0.45 - 4796000;
+    }
+
+    // 復興特別所得税（2.1%）
+    tax = tax * 1.021;
+
+    // 住民税（約10%）
+    const residenceTax = taxableIncome * 0.10;
+
+    return Math.floor(tax + residenceTax);
+}
+
+// 社会保険料を計算
+function calculateSocialInsurance(annualIncome: number): number {
+    // 標準報酬月額ベースで概算
+    const monthlyIncome = annualIncome / 12;
+    
+    // 健康保険料（約10%、労使折半で本人負担5%）
+    const healthInsurance = monthlyIncome * 0.05;
+    
+    // 厚生年金保険料（約18.3%、労使折半で本人負担9.15%）
+    // 標準報酬月額上限65万円
+    const pensionBase = Math.min(monthlyIncome, 650000);
+    const pensionInsurance = pensionBase * 0.0915;
+    
+    // 雇用保険料（約0.6%）
+    const employmentInsurance = monthlyIncome * 0.006;
+    
+    // 年間の社会保険料
+    return Math.floor((healthInsurance + pensionInsurance + employmentInsurance) * 12);
+}
+
+// 変動金利ローンの残債を計算
+function calculateRemainingLoan(
+    originalLoan: number,
+    variableRatePeriods: VariableRatePeriod[],
+    defaultRate: number,
+    loanStartYear: number,
+    loanYears: number,
+    currentYear: number
+): number {
+    let remainingLoan = originalLoan;
+    
+    for (let y = loanStartYear; y < currentYear; y++) {
+        // その年の金利を取得
+        const period = variableRatePeriods.find(p => y >= p.startYear && y <= p.endYear);
+        const rate = period?.interestRate ?? defaultRate;
+        
+        // その年の残り返済年数
+        const yearsRemaining = loanStartYear + loanYears - y;
+        if (yearsRemaining <= 0) break;
+        
+        // 年間返済額を計算
+        const yearlyPayment = calculateMortgagePayment(remainingLoan, rate, yearsRemaining);
+        
+        // 利息部分と元本返済部分を計算
+        const monthlyRate = rate / 100 / 12;
+        const yearlyInterest = remainingLoan * monthlyRate * 12;
+        const principalPayment = yearlyPayment - yearlyInterest;
+        
+        // 残債を更新
+        remainingLoan = Math.max(0, remainingLoan - principalPayment);
+    }
+    
+    return remainingLoan;
+}
+
+// 教育費を計算
+function calculateEducationCost(education: EducationExpense, childAge: number): number {
+    let cost = 0;
+
+    // 幼稚園（3-5歳）
+    if (childAge >= 3 && childAge < 6 && education.kindergarten.type !== 'none') {
+        cost += EDUCATION_COSTS.kindergarten[education.kindergarten.type];
+    }
+
+    // 小学校（6-11歳）
+    if (childAge >= 6 && childAge < 12) {
+        cost += EDUCATION_COSTS.elementary[education.elementary.type];
+    }
+
+    // 中学校（12-14歳）
+    if (childAge >= 12 && childAge < 15) {
+        cost += EDUCATION_COSTS.juniorHigh[education.juniorHigh.type];
+    }
+
+    // 高校（15-17歳）
+    if (childAge >= 15 && childAge < 18) {
+        cost += EDUCATION_COSTS.highSchool[education.highSchool.type];
+    }
+
+    // 大学（18-21歳）
+    if (childAge >= 18 && childAge < 22 && education.university.type !== 'none') {
+        cost += EDUCATION_COSTS.university[education.university.type];
+    }
+
+    // 習い事・塾
+    if (education.extracurricularMonthly) {
+        const startAge = education.extracurricularStartAge || 6;
+        const endAge = education.extracurricularEndAge || 18;
+        if (childAge >= startAge && childAge < endAge) {
+            cost += education.extracurricularMonthly * 12;
+        }
+    }
+
+    return cost;
+}
+
+export function calculateLifePlan(
+    family: FamilyMember[],
+    incomes: Income[],
+    expenses: Expense[],
+    initialAssets: Asset[],
+    events: LifeEvent[],
+    settings: SimulationSettings
+): YearlyResult[] {
+    const results: YearlyResult[] = [];
+
+    // 資産の初期化
+    const currentAssets = initialAssets.reduce((acc, a) => {
+        acc[a.id] = a.currentValue;
+        return acc;
+    }, {} as Record<string, number>);
+
+    // 現金資産を特定
+    const cashAsset = initialAssets.find(a => a.type === 'cash' || a.type === 'deposit') || initialAssets[0];
+    const cashAssetId = cashAsset?.id;
+
+    let virtualSavings = 0;
+
+    const startYear = settings.calculationStartYear;
+    const endYear = settings.calculationEndYear;
+
+    for (let year = startYear; year <= endYear; year++) {
+        const yearResults: YearlyResult = {
+            year,
+            familyAges: {},
+            childrenEducationStages: {},
+            incomes: {},
+            incomeDetails: [],
+            expenses: {},
+            expenseDetails: [],
+            totalIncome: 0,
+            totalExpense: 0,
+            cashFlow: 0,
+            assets: {},
+            totalAssets: 0,
+            events: [],
+        };
+
+        // 家族の年齢を計算
+        family.forEach(member => {
+            const age = year - member.birthYear;
+            yearResults.familyAges[member.id] = {
+                name: member.name,
+                age,
+                role: member.role
+            };
+            if (member.role === 'husband') yearResults.ageHusband = age;
+            if (member.role === 'wife') yearResults.ageWife = age;
+            if (member.role === 'child') {
+                yearResults.childrenEducationStages[member.id] = getEducationStage(age);
+            }
+        });
+
+        // ================== 収入計算 ==================
+        // 給与所得の税・社会保険料自動計算用
+        let salaryTaxExpenses: { name: string; incomeTax: number; socialInsurance: number }[] = [];
+        
+        incomes.forEach(income => {
+            let amount = 0;
+            const owner = family.find(f => f.id === (income as any).ownerId);
+            const ownerAge = owner ? year - owner.birthYear : 0;
+
+            switch (income.type) {
+                case 'salary': {
+                    const salaryIncome = income as SalaryIncome;
+                    if (salaryIncome.startAge && ownerAge < salaryIncome.startAge) break;
+                    if (salaryIncome.endAge && ownerAge > salaryIncome.endAge) break;
+
+                    if (salaryIncome.useAutoComplete && salaryIncome.ageCurve.length > 0) {
+                        amount = interpolateSalary(salaryIncome.ageCurve, ownerAge);
+                    } else if (salaryIncome.ageCurve.length > 0) {
+                        const exact = salaryIncome.ageCurve.find(c => c.age === ownerAge);
+                        amount = exact?.annualAmount || 0;
+                    }
+                    
+                    // 税・社会保険料の自動計算
+                    if (amount > 0 && salaryIncome.autoCalculateTax !== false) {
+                        const incomeTax = calculateIncomeTax(amount);
+                        const socialInsurance = calculateSocialInsurance(amount);
+                        salaryTaxExpenses.push({
+                            name: `${salaryIncome.name}の税・社保`,
+                            incomeTax,
+                            socialInsurance
+                        });
+                    }
+                    break;
+                }
+                case 'pension': {
+                    const pensionIncome = income as PensionIncome;
+                    amount = calculatePension(pensionIncome, ownerAge);
+                    break;
+                }
+                case 'retirement': {
+                    const retirementIncome = income as RetirementIncome;
+                    if (year === retirementIncome.receiveYear) {
+                        amount = retirementIncome.amount;
+                    }
+                    break;
+                }
+                case 'investment': {
+                    const investmentIncome = income as InvestmentIncome;
+                    if (investmentIncome.startYear && year < investmentIncome.startYear) break;
+                    if (investmentIncome.endYear && year > investmentIncome.endYear) break;
+                    amount = investmentIncome.annualAmount;
+                    break;
+                }
+                case 'business':
+                case 'other': {
+                    const otherIncome = income as OtherIncome;
+                    if (otherIncome.startYear && year < otherIncome.startYear) break;
+                    if (otherIncome.endYear && year > otherIncome.endYear) break;
+                    amount = otherIncome.periodicity === 'monthly' ? otherIncome.amount * 12 : otherIncome.amount;
+                    break;
+                }
+            }
+
+            if (amount > 0) {
+                const category = income.type;
+                yearResults.incomes[category] = (yearResults.incomes[category] || 0) + amount;
+                yearResults.incomeDetails.push({ name: income.name, category, amount });
+                yearResults.totalIncome += amount;
+            }
+        });
+
+        // ================== 給与からの税・社会保険料を自動計上 ==================
+        salaryTaxExpenses.forEach(taxExp => {
+            const totalTax = taxExp.incomeTax + taxExp.socialInsurance;
+            if (totalTax > 0) {
+                yearResults.expenses['tax'] = (yearResults.expenses['tax'] || 0) + totalTax;
+                yearResults.expenseDetails.push({ 
+                    name: taxExp.name, 
+                    category: 'tax', 
+                    amount: totalTax 
+                });
+                yearResults.totalExpense += totalTax;
+            }
+        });
+
+        // ================== 支出計算 ==================
+        expenses.forEach(expense => {
+            let amount = 0;
+
+            switch (expense.category) {
+                case 'housing': {
+                    const housing = expense as HousingExpense;
+                    if (housing.housingType === 'rent') {
+                        if (housing.rentStartYear && year < housing.rentStartYear) break;
+                        if (housing.rentEndYear && year > housing.rentEndYear) break;
+                        amount = (housing.monthlyRent || 0) * 12;
+                    } else if (housing.housingType === 'owned-loan') {
+                        if (housing.loanStartYear && housing.loanAmount && housing.loanYears) {
+                            const loanEndYear = housing.loanStartYear + housing.loanYears;
+                            if (year >= housing.loanStartYear && year < loanEndYear) {
+                                // 変動金利の場合
+                                if (housing.isVariableRate && housing.variableRatePeriods && housing.variableRatePeriods.length > 0) {
+                                    // 現在の年に適用される金利を取得
+                                    const currentPeriod = housing.variableRatePeriods.find(
+                                        p => year >= p.startYear && year <= p.endYear
+                                    );
+                                    const currentRate = currentPeriod?.interestRate ?? housing.loanInterestRate ?? 0;
+                                    
+                                    // 残債を計算（簡易計算：年初時点の残債から計算）
+                                    const yearsSinceLoanStart = year - housing.loanStartYear;
+                                    const remainingYears = housing.loanYears - yearsSinceLoanStart;
+                                    
+                                    // 各年の返済額を変動金利で再計算
+                                    // 実際には残債ベースで計算するが、簡易的に現在金利で年間返済額を計算
+                                    const remainingLoan = calculateRemainingLoan(
+                                        housing.loanAmount,
+                                        housing.variableRatePeriods,
+                                        housing.loanInterestRate || 0,
+                                        housing.loanStartYear,
+                                        housing.loanYears,
+                                        year
+                                    );
+                                    amount = calculateMortgagePayment(remainingLoan, currentRate, remainingYears);
+                                } else {
+                                    // 固定金利の場合
+                                    amount = calculateMortgagePayment(
+                                        housing.loanAmount,
+                                        housing.loanInterestRate || 0,
+                                        housing.loanYears
+                                    );
+                                }
+                            }
+                        }
+                    }
+                    // 固定資産税
+                    if (housing.propertyTaxYearly) {
+                        amount += housing.propertyTaxYearly;
+                    }
+                    // マンション管理費・修繕積立金
+                    if (housing.isApartment) {
+                        amount += (housing.managementFeeMonthly || 0) * 12;
+                        amount += (housing.repairReserveFundMonthly || 0) * 12;
+                    }
+                    // 大規模修繕
+                    if (housing.majorRepairCost && housing.majorRepairInterval && housing.majorRepairStartYear) {
+                        const yearsSinceStart = year - housing.majorRepairStartYear;
+                        if (yearsSinceStart >= 0 && yearsSinceStart % housing.majorRepairInterval === 0) {
+                            amount += housing.majorRepairCost;
+                        }
+                    }
+                    // 火災保険
+                    if (housing.fireInsuranceYearly) {
+                        amount += housing.fireInsuranceYearly;
+                    }
+                    break;
+                }
+                case 'education': {
+                    const education = expense as EducationExpense;
+                    const child = family.find(f => f.id === education.childId);
+                    if (child) {
+                        const childAge = year - child.birthYear;
+                        amount = calculateEducationCost(education, childAge);
+                    }
+                    break;
+                }
+                case 'tax': {
+                    const tax = expense as TaxExpense;
+                    if (tax.startYear && year < tax.startYear) break;
+                    if (tax.endYear && year > tax.endYear) break;
+                    if (tax.useAutoCalculation) {
+                        // 簡易計算: 収入の約20%を税・社会保険として計上
+                        amount = yearResults.totalIncome * 0.20;
+                    } else if (tax.customAmount) {
+                        amount = tax.customPeriodicity === 'monthly' ? tax.customAmount * 12 : tax.customAmount;
+                    }
+                    break;
+                }
+                case 'insurance': {
+                    const insurance = expense as InsuranceExpense;
+                    if (insurance.startYear && year < insurance.startYear) break;
+                    if (insurance.endYear && year > insurance.endYear) break;
+                    amount = insurance.monthlyPremium * 12;
+                    break;
+                }
+                case 'car': {
+                    const car = expense as CarExpense;
+                    if (!car.hasCar) break;
+                    if (car.startYear && year < car.startYear) break;
+                    if (car.endYear && year > car.endYear) break;
+                    // 維持費
+                    amount += car.taxYearly || 0;
+                    amount += car.insuranceYearly || 0;
+                    amount += car.maintenanceYearly || 0;
+                    amount += (car.gasMonthly || 0) * 12;
+                    amount += (car.parkingMonthly || 0) * 12;
+                    // 車購入
+                    if (car.purchaseYear && car.purchasePrice && car.replacementInterval) {
+                        const yearsSincePurchase = year - car.purchaseYear;
+                        if (yearsSincePurchase >= 0 && yearsSincePurchase % car.replacementInterval === 0) {
+                            amount += car.purchasePrice;
+                        }
+                    }
+                    break;
+                }
+                case 'allowance': {
+                    const allowance = expense as AllowanceExpense;
+                    if (allowance.startYear && year < allowance.startYear) break;
+                    if (allowance.endYear && year > allowance.endYear) break;
+                    amount = allowance.monthlyAmount * 12;
+                    break;
+                }
+                case 'living': {
+                    const living = expense as LivingExpense;
+                    if (living.startYear && year < living.startYear) break;
+                    if (living.endYear && year > living.endYear) break;
+                    amount = living.monthlyAmount * 12;
+                    break;
+                }
+                case 'utility': {
+                    const utility = expense as UtilityExpense;
+                    if (utility.startYear && year < utility.startYear) break;
+                    if (utility.endYear && year > utility.endYear) break;
+                    amount = ((utility.electricityMonthly || 0) + 
+                              (utility.gasMonthly || 0) + 
+                              (utility.waterMonthly || 0)) * 12;
+                    break;
+                }
+                case 'communication': {
+                    const comm = expense as CommunicationExpense;
+                    if (comm.startYear && year < comm.startYear) break;
+                    if (comm.endYear && year > comm.endYear) break;
+                    amount = ((comm.internetMonthly || 0) + 
+                              (comm.mobileMonthly || 0) + 
+                              (comm.subscriptionsMonthly || 0)) * 12;
+                    break;
+                }
+                case 'medical': {
+                    const medical = expense as MedicalExpense;
+                    if (medical.startYear && year < medical.startYear) break;
+                    if (medical.endYear && year > medical.endYear) break;
+                    amount = medical.monthlyAmount * 12;
+                    break;
+                }
+                default: {
+                    const generic = expense as GenericExpense;
+                    if (generic.startYear && year < generic.startYear) break;
+                    if (generic.endYear && year > generic.endYear) break;
+                    amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                    break;
+                }
+            }
+
+            if (amount > 0) {
+                yearResults.expenses[expense.category] = (yearResults.expenses[expense.category] || 0) + amount;
+                yearResults.expenseDetails.push({ name: expense.name, category: expense.category, amount });
+                yearResults.totalExpense += amount;
+            }
+        });
+
+        // ================== ライフイベント ==================
+        events.forEach(event => {
+            let applyEvent = false;
+            if (event.year === year) {
+                applyEvent = true;
+            } else if (event.isRecurring && event.recurrenceInterval) {
+                const initialYear = event.year;
+                const endYear = event.endYear || settings.calculationEndYear;
+                if (year >= initialYear && year <= endYear) {
+                    if ((year - initialYear) % event.recurrenceInterval === 0) {
+                        applyEvent = true;
+                    }
+                }
+            }
+
+            if (applyEvent) {
+                yearResults.expenses['event'] = (yearResults.expenses['event'] || 0) + event.cost;
+                yearResults.expenseDetails.push({ name: event.name, category: 'event', amount: event.cost });
+                yearResults.totalExpense += event.cost;
+                yearResults.events.push(event.name);
+            }
+
+            // 車購入イベントの維持費計算（購入年以降、次の買い替えまで毎年）
+            if (event.eventType === 'car-purchase' && event.carMaintenance) {
+                const purchaseYear = event.year;
+                const interval = event.isRecurring && event.recurrenceInterval ? event.recurrenceInterval : 100; // 買い替えなければ100年
+                const yearsSincePurchase = year - purchaseYear;
+                
+                // 購入年以降で、次の買い替え前まで（繰り返しの場合は各周期内で適用）
+                if (yearsSincePurchase >= 0) {
+                    const cyclePosition = event.isRecurring && event.recurrenceInterval 
+                        ? yearsSincePurchase % event.recurrenceInterval 
+                        : yearsSincePurchase;
+                    
+                    // 買い替え間隔内なら維持費を計上
+                    if (cyclePosition >= 0 && cyclePosition < interval) {
+                        const maint = event.carMaintenance;
+                        const yearlyMaintenance = 
+                            maint.taxYearly + 
+                            maint.insuranceYearly + 
+                            maint.maintenanceYearly + 
+                            (maint.gasMonthly + maint.parkingMonthly) * 12;
+                        
+                        yearResults.expenses['car'] = (yearResults.expenses['car'] || 0) + yearlyMaintenance;
+                        yearResults.expenseDetails.push({ 
+                            name: `${event.name}維持費`, 
+                            category: 'car', 
+                            amount: yearlyMaintenance 
+                        });
+                        yearResults.totalExpense += yearlyMaintenance;
+                    }
+                }
+            }
+        });
+
+        // ================== 内訳を設定 ==================
+        // 収入内訳
+        yearResults.incomeBreakdown = {
+            salary: yearResults.incomes['salary'] || 0,
+            pension: yearResults.incomes['pension'] || 0,
+            other: (yearResults.incomes['business'] || 0) + 
+                   (yearResults.incomes['investment'] || 0) + 
+                   (yearResults.incomes['retirement'] || 0) + 
+                   (yearResults.incomes['other'] || 0),
+        };
+
+        // 支出内訳
+        yearResults.expenseBreakdown = {
+            housing: yearResults.expenses['housing'] || 0,
+            tax: yearResults.expenses['tax'] || 0,
+            education: yearResults.expenses['education'] || 0,
+            living: yearResults.expenses['living'] || 0,
+            utility: yearResults.expenses['utility'] || 0,
+            communication: yearResults.expenses['communication'] || 0,
+            medical: yearResults.expenses['medical'] || 0,
+            insurance: yearResults.expenses['insurance'] || 0,
+            car: yearResults.expenses['car'] || 0,
+            allowance: yearResults.expenses['allowance'] || 0,
+            event: yearResults.expenses['event'] || 0,
+            other: yearResults.expenses['other'] || 0,
+        };
+
+        // ================== キャッシュフロー計算 ==================
+        yearResults.cashFlow = yearResults.totalIncome - yearResults.totalExpense;
+
+        // ================== 資産更新 ==================
+        let totalAssetsVal = 0;
+
+        if (initialAssets.length > 0) {
+            initialAssets.forEach(asset => {
+                let val = currentAssets[asset.id];
+
+                // 利息を加算
+                val += val * (asset.annualInterestRate / 100);
+
+                // 積立投資
+                if (asset.isAccumulating && asset.monthlyContribution) {
+                    const startYear = asset.accumulationStartYear || settings.calculationStartYear;
+                    const endYear = asset.accumulationEndYear || settings.calculationEndYear;
+                    if (year >= startYear && year <= endYear) {
+                        val += asset.monthlyContribution * 12;
+                    }
+                }
+
+                // キャッシュフローを現金資産に反映
+                if (asset.id === cashAssetId) {
+                    val += yearResults.cashFlow;
+                }
+
+                currentAssets[asset.id] = val;
+                yearResults.assets[asset.id] = val;
+                totalAssetsVal += val;
+            });
+        } else {
+            virtualSavings += yearResults.cashFlow;
+            yearResults.assets['virtual'] = virtualSavings;
+            totalAssetsVal = virtualSavings;
+        }
+
+        yearResults.totalAssets = totalAssetsVal;
+        results.push(yearResults);
+    }
+
+    return results;
+}
