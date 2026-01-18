@@ -52,6 +52,7 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
         const row: Record<string, any> = {
             year: d.year,
             totalIncome: d.totalIncome,
+            totalExpense: d.totalExpense,
         };
         EXPENSE_CATEGORIES.forEach(cat => {
             row[cat.key] = d.expenses[cat.key] || 0;
@@ -91,15 +92,15 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                         borderRadius: '6px',
                         cursor: 'pointer',
                         fontSize: '12px',
-                        background: visibleItems.income ? 'rgba(9, 132, 227, 0.15)' : 'rgba(0,0,0,0.05)',
-                        color: visibleItems.income ? '#0984e3' : '#999',
+                        background: visibleItems.income ? 'rgba(231, 76, 60, 0.15)' : 'rgba(0,0,0,0.05)',
+                        color: visibleItems.income ? '#e74c3c' : '#999',
                         transition: 'all 0.2s',
                     }}
                 >
                     <span style={{
                         width: '12px',
                         height: '3px',
-                        background: visibleItems.income ? '#0984e3' : '#ccc',
+                        background: visibleItems.income ? '#e74c3c' : '#ccc',
                         borderRadius: '2px'
                     }} />
                     総収入
@@ -133,7 +134,7 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                 ))}
             </div>
 
-            <div style={{ flex: 1, width: '100%', height: 300 }}>
+            <div style={{ flex: 1, width: '100%', height: 300, outline: 'none' }}>
                 <ResponsiveContainer width="100%" height={300}>
                     <ComposedChart
                         data={chartData}
@@ -143,6 +144,7 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                             bottom: 20,
                             left: 20,
                         }}
+                        style={{ outline: 'none' }}
                     >
                         <CartesianGrid stroke="#f5f5f5" vertical={false} />
                         <XAxis
@@ -162,10 +164,41 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                             formatter={(value, name) => {
                                 const cat = EXPENSE_CATEGORIES.find(c => c.key === name);
                                 const displayName = cat ? cat.name : (name === 'totalIncome' ? '総収入' : String(name));
-                                return [typeof value === 'number' ? `${value.toLocaleString()}円` : '0円', displayName];
+                                return [typeof value === 'number' ? `${Math.round(value).toLocaleString()}円` : '0円', displayName];
                             }}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}
-                            labelFormatter={(label) => `${label}年`}
+                            content={({ active, payload, label }) => {
+                                if (active && payload && payload.length > 0) {
+                                    const data = payload[0]?.payload;
+                                    const totalExpense = Math.round(data?.totalExpense || 0);
+                                    return (
+                                        <div style={{ 
+                                            background: 'white', 
+                                            borderRadius: '12px', 
+                                            padding: '12px 16px', 
+                                            boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+                                            minWidth: '160px'
+                                        }}>
+                                            <p style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>{label}年</p>
+                                            <p style={{ margin: '4px 0', color: '#d63031', fontWeight: 600, fontSize: '13px' }}>
+                                                📊 総費用: {totalExpense.toLocaleString()}円
+                                            </p>
+                                            <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '8px 0' }} />
+                                            {payload.map((entry: any, index: number) => {
+                                                const cat = EXPENSE_CATEGORIES.find(c => c.key === entry.dataKey);
+                                                const displayName = cat ? cat.name : (entry.dataKey === 'totalIncome' ? '総収入' : entry.dataKey);
+                                                const value = Math.round(entry.value || 0);
+                                                if (value === 0) return null;
+                                                return (
+                                                    <p key={index} style={{ margin: '4px 0', color: entry.color, fontSize: '12px' }}>
+                                                        {displayName}: {value.toLocaleString()}円
+                                                    </p>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            }}
                         />
 
                         {/* 支出カテゴリを積み上げ棒グラフで表示 */}
@@ -177,17 +210,18 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                                     stackId="expenses"
                                     fill={cat.color}
                                     name={cat.key}
+                                    barSize={40}
                                     radius={index === EXPENSE_CATEGORIES.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]}
                                 />
                             )
                         ))}
 
-                        {/* 収入を折れ線グラフで表示 */}
+                        {/* 収入を折れ線グラフで表示（ステップ型で各年水平に、中央揃え） */}
                         {visibleItems.income && (
                             <Line
-                                type="monotone"
+                                type="step"
                                 dataKey="totalIncome"
-                                stroke="#0984e3"
+                                stroke="#e74c3c"
                                 strokeWidth={3}
                                 dot={false}
                                 name="totalIncome"

@@ -24,6 +24,7 @@ type RowDef = {
     category?: 'header' | 'income' | 'expense' | 'balance' | 'event' | 'age';
     indent?: boolean;
     subRows?: RowDef[];
+    getEducationStage?: (d: YearlyResult) => string | undefined;
 };
 
 export const DataTable: React.FC<DataTableProps> = ({ data }) => {
@@ -33,12 +34,19 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
     // 展開状態の管理
     const [expanded, setExpanded] = useState<Record<string, boolean>>({
         income: false,
-        expense: false
+        expense: false,
+        assetChange: false
     });
 
     const toggleExpand = (key: string) => {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
     };
+
+    // 夫と妻の名前を取得
+    const husband = family.find(m => m.role === 'husband');
+    const wife = family.find(m => m.role === 'wife');
+    const husbandName = husband?.name || '夫';
+    const wifeName = wife?.name || '妻';
 
     // 子供のメンバーをフィルタリング
     const children = family.filter(m => m.role === 'child');
@@ -49,20 +57,23 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
         getValue: (d: YearlyResult) => {
             const age = d.year - child.birthYear;
             const stage = d.childrenEducationStages?.[child.id];
-            // 卒業後はラベルなし
+            // 卒業後は教育段階を表示しない
             const stageLabel = (stage && stage !== 'graduated') ? EDUCATION_STAGE_LABELS[stage] || stage : '';
             if (age < 0) return '未誕生';
             return `${age}歳${stageLabel ? ` (${stageLabel})` : ''}`;
         },
-        category: 'age' as const
+        category: 'age' as const,
+        getEducationStage: (d: YearlyResult) => d.childrenEducationStages?.[child.id]
     }));
 
     // メインのデータ行
     const mainRows: RowDef[] = [
         // 年齢セクション
-        { label: '年齢 (夫)', getValue: (d: YearlyResult) => d.ageHusband != null ? `${d.ageHusband}歳` : '-', category: 'age' },
-        { label: '年齢 (妻)', getValue: (d: YearlyResult) => d.ageWife != null ? `${d.ageWife}歳` : '-', category: 'age' },
+        { label: `${husbandName}`, getValue: (d: YearlyResult) => d.ageHusband != null ? `${d.ageHusband}歳` : '-', category: 'age' },
+        { label: `${wifeName}`, getValue: (d: YearlyResult) => d.ageWife != null ? `${d.ageWife}歳` : '-', category: 'age' },
         ...childrenRows,
+        // イベント（家族行のすぐ下）
+        { label: '📅 イベント', getValue: (d: YearlyResult) => d.events.join('\n') || '-', category: 'event' },
         // 収入セクション（展開可能）
         {
             label: '📈 総収入',
@@ -96,17 +107,37 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
         },
         // 収支・資産
         { label: '💰 年間収支', getValue: (d: YearlyResult) => formatMoney(d.cashFlow), category: 'balance' },
+        { 
+            label: '📊 資産増減',
+            getValue: (d: YearlyResult) => formatMoney(d.assetChangeBreakdown?.totalChange || 0),
+            category: 'balance',
+            subRows: [
+                { label: '収支影響', getValue: (d: YearlyResult) => formatMoney(d.assetChangeBreakdown?.cashFlowImpact || 0), indent: true },
+                { label: '運用益', getValue: (d: YearlyResult) => formatMoney(d.assetChangeBreakdown?.interestGain || 0), indent: true },
+                { label: '積立投資', getValue: (d: YearlyResult) => formatMoney(d.assetChangeBreakdown?.accumulationContribution || 0), indent: true },
+            ]
+        },
         { label: '🏦 資産残高', getValue: (d: YearlyResult) => formatMoney(d.totalAssets), category: 'balance' },
-        // イベント
-        { label: '📅 イベント', getValue: (d: YearlyResult) => d.events.join(', ') || '-', category: 'event' }
     ];
 
-    const getCellStyle = (category?: string, value?: number | string) => {
+    // 教育段階に応じた背景色を返す
+    const getEducationStageBackground = (stage?: string): string | undefined => {
+        switch (stage) {
+            case 'kindergarten': return 'rgba(255, 235, 205, 0.5)'; // 幼稚園 - オレンジ薄め
+            case 'elementary': return 'rgba(255, 250, 205, 0.5)'; // 小学校 - 黄色薄め
+            case 'middleSchool': return 'rgba(224, 255, 224, 0.5)'; // 中学校 - 緑薄め
+            case 'highSchool': return 'rgba(224, 240, 255, 0.5)'; // 高校 - 青薄め
+            case 'university': return 'rgba(240, 224, 255, 0.5)'; // 大学 - 紫薄め
+            default: return undefined;
+        }
+    };
+
+    const getCellStyle = (category?: string, value?: number | string, educationStage?: string) => {
         const base: React.CSSProperties = {
-            padding: '8px 12px',
+            padding: '6px 4px',
             textAlign: 'right',
             whiteSpace: 'nowrap',
-            fontSize: '12px'
+            fontSize: '11px'
         };
 
         if (category === 'income') {
@@ -122,23 +153,32 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
             }
         }
         if (category === 'event') {
-            return { ...base, textAlign: 'left' as const, fontSize: '11px', color: '#666', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' };
+            return { ...base, textAlign: 'left' as const, fontSize: '11px', color: '#666', whiteSpace: 'pre-line' as const, minWidth: '150px', lineHeight: 1.4 };
         }
         if (category === 'age') {
-            return { ...base, color: '#636e72', textAlign: 'center' as const };
+            const bg = getEducationStageBackground(educationStage);
+            return { ...base, color: '#636e72', textAlign: 'center' as const, background: bg };
         }
         return base;
     };
 
     const renderRow = (row: RowDef, idx: number, isSubRow = false) => {
         const hasSubRows = row.subRows && row.subRows.length > 0;
-        const expandKey = row.category === 'income' ? 'income' : row.category === 'expense' ? 'expense' : '';
+        // 展開キーを判定（資産増減行はラベルで判定）
+        let expandKey = '';
+        if (row.category === 'income') expandKey = 'income';
+        else if (row.category === 'expense') expandKey = 'expense';
+        else if (row.label === '📊 資産増減') expandKey = 'assetChange';
         const isExpanded = expandKey ? expanded[expandKey] : false;
+
+        // 総収入行と資産増減行の上に太線を引く（薄いグレー）
+        const needsTopBorder = row.label === '📈 総収入' || row.label === '📊 資産増減';
 
         return (
             <React.Fragment key={idx}>
                 <tr style={{
                     borderBottom: '1px solid #f0f0f0',
+                    borderTop: needsTopBorder ? '2px solid #ccc' : undefined,
                     background: hasSubRows ? '#fafafa' : 'transparent'
                 }}>
                     <td style={{
@@ -153,21 +193,22 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                         cursor: hasSubRows ? 'pointer' : 'default',
                         minWidth: '140px',
                         borderRight: '1px solid #eee',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
+                        verticalAlign: 'middle'
                     }}
                         onClick={() => hasSubRows && expandKey && toggleExpand(expandKey)}
                     >
-                        {hasSubRows && (
-                            isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
-                        )}
-                        {row.label}
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {hasSubRows && (
+                                isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+                            )}
+                            {row.label}
+                        </span>
                     </td>
                     {data.map((d, dIdx) => {
                         const rawValue = row.getValue(d);
+                        const educationStage = row.getEducationStage?.(d);
                         return (
-                            <td key={dIdx} style={getCellStyle(row.category, rawValue)}>
+                            <td key={dIdx} style={getCellStyle(row.category, rawValue, educationStage)}>
                                 {rawValue}
                             </td>
                         );
@@ -200,12 +241,12 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                         </th>
                         {years.map(year => (
                             <th key={year} style={{
-                                padding: '10px 12px',
+                                padding: '8px 4px',
                                 textAlign: 'center',
-                                minWidth: '90px',
+                                minWidth: '50px',
                                 color: 'white',
                                 fontWeight: 500,
-                                fontSize: '12px'
+                                fontSize: '11px'
                             }}>
                                 {year}年
                             </th>

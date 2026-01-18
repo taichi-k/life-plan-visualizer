@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import styles from './Modal.module.css';
 import { createPortal } from 'react-dom';
@@ -11,10 +11,16 @@ interface ModalProps {
 }
 
 export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }) => {
-    const [mounted, setMounted] = useState(false);
+    const portalRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        setMounted(true);
+        if (!portalRef.current) {
+            portalRef.current = document.createElement('div');
+            portalRef.current.id = 'modal-portal';
+        }
+    }, []);
+
+    useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
         } else {
@@ -25,7 +31,7 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
         };
     }, [isOpen]);
 
-    if (!mounted || !isOpen) return null;
+    if (!isOpen) return null;
 
     return createPortal(
         <div className={styles.overlay} onClick={onClose}>

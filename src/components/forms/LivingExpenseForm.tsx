@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../lib/store';
 import { LivingExpense, UtilityExpense, CommunicationExpense, MedicalExpense, AllowanceExpense } from '../../lib/types';
 import styles from './Forms.module.css';
-import { Trash2, Plus, ShoppingCart, Zap, Wifi, Heart, Wallet } from 'lucide-react';
+import { Trash2, Plus, ShoppingCart, Zap, Wifi, Heart, Wallet, Edit2, Check, X } from 'lucide-react';
 
 type TabType = 'living' | 'utility' | 'communication' | 'medical' | 'allowance';
 
 export const LivingExpenseForm: React.FC = () => {
-    const { family, expenses, addExpense, removeExpense, settings } = useAppStore();
+    const { family, expenses, addExpense, removeExpense, updateExpense, settings } = useAppStore();
     const [activeTab, setActiveTab] = useState<TabType>('living');
 
     const livingExpenses = expenses.filter(e => e.category === 'living') as LivingExpense[];
@@ -47,6 +47,30 @@ export const LivingExpenseForm: React.FC = () => {
     const [allowanceMonthly, setAllowanceMonthly] = useState(30000);
     const [allowanceStartYear, setAllowanceStartYear] = useState(settings.calculationStartYear);
     const [allowanceEndYear, setAllowanceEndYear] = useState(settings.calculationEndYear);
+
+    // 編集用の状態
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editData, setEditData] = useState<Record<string, any>>({});
+
+    // 編集開始
+    const startEdit = (item: any) => {
+        setEditingId(item.id);
+        setEditData({ ...item });
+    };
+
+    // 編集キャンセル
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditData({});
+    };
+
+    // 編集保存
+    const saveEdit = () => {
+        if (!editingId) return;
+        updateExpense(editingId, editData);
+        setEditingId(null);
+        setEditData({});
+    };
 
     const handleAddLiving = () => {
         const living: LivingExpense = {
@@ -144,13 +168,59 @@ export const LivingExpenseForm: React.FC = () => {
                     <div className={styles.list}>
                         {livingExpenses.map(item => (
                             <div key={item.id} className={styles.listItem}>
-                                <div className={styles.itemInfo}>
-                                    <span className={styles.itemName}>{item.name}</span>
-                                    <span className={styles.itemDetail}>{item.monthlyAmount.toLocaleString()}円/月</span>
-                                </div>
-                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                    <Trash2 size={18} />
-                                </button>
+                                {editingId === item.id ? (
+                                    <div className={styles.editFormFull}>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>名称</label>
+                                                <input type="text" value={editData.name || ''} onChange={(e) => setEditData({...editData, name: e.target.value})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>カテゴリ</label>
+                                                <select value={editData.subcategory || 'food'} onChange={(e) => setEditData({...editData, subcategory: e.target.value})}>
+                                                    <option value="food">食費</option>
+                                                    <option value="daily">日用品</option>
+                                                    <option value="entertainment">娯楽費</option>
+                                                    <option value="clothing">被服費</option>
+                                                    <option value="other">その他</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div className={styles.formGroup}>
+                                            <label>月額</label>
+                                            <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                        </div>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>開始年</label>
+                                                <input type="number" value={editData.startYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, startYear: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>終了年</label>
+                                                <input type="number" value={editData.endYear || settings.calculationEndYear} onChange={(e) => setEditData({...editData, endYear: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.editActions}>
+                                            <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                            <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.itemInfo}>
+                                            <span className={styles.itemName}>{item.name}</span>
+                                            <span className={styles.itemDetail}>{item.monthlyAmount.toLocaleString()}円/月</span>
+                                        </div>
+                                        <div className={styles.itemActions}>
+                                            <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {livingExpenses.length === 0 && <div className={styles.emptyState}>生活費はまだ登録されていません。</div>}
@@ -200,16 +270,59 @@ export const LivingExpenseForm: React.FC = () => {
                     <div className={styles.list}>
                         {utilityExpenses.map(item => (
                             <div key={item.id} className={styles.listItem}>
-                                <div className={styles.itemInfo}>
-                                    <span className={styles.itemName}>{item.name}</span>
-                                    <span className={styles.itemDetail}>
-                                        電気{item.electricityMonthly?.toLocaleString()} + ガス{item.gasMonthly?.toLocaleString()} + 水道{item.waterMonthly?.toLocaleString()}円/月
-                                        {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
-                                    </span>
-                                </div>
-                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                    <Trash2 size={18} />
-                                </button>
+                                {editingId === item.id ? (
+                                    <div className={styles.editFormFull}>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>電気代（月額）</label>
+                                                <input type="number" value={editData.electricityMonthly || 0} onChange={(e) => setEditData({...editData, electricityMonthly: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>ガス代（月額）</label>
+                                                <input type="number" value={editData.gasMonthly || 0} onChange={(e) => setEditData({...editData, gasMonthly: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>水道代（月額）</label>
+                                                <input type="number" value={editData.waterMonthly || 0} onChange={(e) => setEditData({...editData, waterMonthly: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>開始年</label>
+                                                <input type="number" value={editData.startYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, startYear: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>終了年</label>
+                                                <input type="number" value={editData.endYear || settings.calculationEndYear} onChange={(e) => setEditData({...editData, endYear: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.previewBox}>
+                                            <span>合計: <strong>{((editData.electricityMonthly || 0) + (editData.gasMonthly || 0) + (editData.waterMonthly || 0)).toLocaleString()}円/月</strong></span>
+                                        </div>
+                                        <div className={styles.editActions}>
+                                            <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                            <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.itemInfo}>
+                                            <span className={styles.itemName}>{item.name}</span>
+                                            <span className={styles.itemDetail}>
+                                                電気{item.electricityMonthly?.toLocaleString()} + ガス{item.gasMonthly?.toLocaleString()} + 水道{item.waterMonthly?.toLocaleString()}円/月
+                                                {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
+                                            </span>
+                                        </div>
+                                        <div className={styles.itemActions}>
+                                            <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {utilityExpenses.length === 0 && <div className={styles.emptyState}>光熱費はまだ登録されていません。</div>}
@@ -256,16 +369,59 @@ export const LivingExpenseForm: React.FC = () => {
                     <div className={styles.list}>
                         {communicationExpenses.map(item => (
                             <div key={item.id} className={styles.listItem}>
-                                <div className={styles.itemInfo}>
-                                    <span className={styles.itemName}>{item.name}</span>
-                                    <span className={styles.itemDetail}>
-                                        {((item.internetMonthly || 0) + (item.mobileMonthly || 0) + (item.subscriptionsMonthly || 0)).toLocaleString()}円/月
-                                        {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
-                                    </span>
-                                </div>
-                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                    <Trash2 size={18} />
-                                </button>
+                                {editingId === item.id ? (
+                                    <div className={styles.editFormFull}>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>インターネット（月額）</label>
+                                                <input type="number" value={editData.internetMonthly || 0} onChange={(e) => setEditData({...editData, internetMonthly: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>携帯電話（世帯合計）</label>
+                                                <input type="number" value={editData.mobileMonthly || 0} onChange={(e) => setEditData({...editData, mobileMonthly: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.formGroup}>
+                                            <label>サブスク等（月額）</label>
+                                            <input type="number" value={editData.subscriptionsMonthly || 0} onChange={(e) => setEditData({...editData, subscriptionsMonthly: Number(e.target.value)})} />
+                                        </div>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>開始年</label>
+                                                <input type="number" value={editData.startYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, startYear: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>終了年</label>
+                                                <input type="number" value={editData.endYear || settings.calculationEndYear} onChange={(e) => setEditData({...editData, endYear: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.previewBox}>
+                                            <span>合計: <strong>{((editData.internetMonthly || 0) + (editData.mobileMonthly || 0) + (editData.subscriptionsMonthly || 0)).toLocaleString()}円/月</strong></span>
+                                        </div>
+                                        <div className={styles.editActions}>
+                                            <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                            <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.itemInfo}>
+                                            <span className={styles.itemName}>{item.name}</span>
+                                            <span className={styles.itemDetail}>
+                                                {((item.internetMonthly || 0) + (item.mobileMonthly || 0) + (item.subscriptionsMonthly || 0)).toLocaleString()}円/月
+                                                {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
+                                            </span>
+                                        </div>
+                                        <div className={styles.itemActions}>
+                                            <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {communicationExpenses.length === 0 && <div className={styles.emptyState}>通信費はまだ登録されていません。</div>}
@@ -312,16 +468,46 @@ export const LivingExpenseForm: React.FC = () => {
                     <div className={styles.list}>
                         {medicalExpenses.map(item => (
                             <div key={item.id} className={styles.listItem}>
-                                <div className={styles.itemInfo}>
-                                    <span className={styles.itemName}>{item.name}</span>
-                                    <span className={styles.itemDetail}>
-                                        {item.monthlyAmount.toLocaleString()}円/月
-                                        {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
-                                    </span>
-                                </div>
-                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                    <Trash2 size={18} />
-                                </button>
+                                {editingId === item.id ? (
+                                    <div className={styles.editFormFull}>
+                                        <div className={styles.formGroup}>
+                                            <label>月額医療費</label>
+                                            <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                        </div>
+                                        <div className={styles.row}>
+                                            <div className={styles.formGroup}>
+                                                <label>開始年</label>
+                                                <input type="number" value={editData.startYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, startYear: Number(e.target.value)})} />
+                                            </div>
+                                            <div className={styles.formGroup}>
+                                                <label>終了年</label>
+                                                <input type="number" value={editData.endYear || settings.calculationEndYear} onChange={(e) => setEditData({...editData, endYear: Number(e.target.value)})} />
+                                            </div>
+                                        </div>
+                                        <div className={styles.editActions}>
+                                            <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                            <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.itemInfo}>
+                                            <span className={styles.itemName}>{item.name}</span>
+                                            <span className={styles.itemDetail}>
+                                                {item.monthlyAmount.toLocaleString()}円/月
+                                                {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
+                                            </span>
+                                        </div>
+                                        <div className={styles.itemActions}>
+                                            <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {medicalExpenses.length === 0 && <div className={styles.emptyState}>医療費はまだ登録されていません。</div>}
@@ -357,16 +543,56 @@ export const LivingExpenseForm: React.FC = () => {
                             const owner = family.find(f => f.id === item.ownerId);
                             return (
                                 <div key={item.id} className={styles.listItem}>
-                                    <div className={styles.itemInfo}>
-                                        <span className={styles.itemName}>{item.name}</span>
-                                        <span className={styles.itemDetail}>
-                                            {owner?.name} | {item.monthlyAmount.toLocaleString()}円/月
-                                            {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
-                                        </span>
-                                    </div>
-                                    <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                        <Trash2 size={18} />
-                                    </button>
+                                    {editingId === item.id ? (
+                                        <div className={styles.editFormFull}>
+                                            <div className={styles.row}>
+                                                <div className={styles.formGroup}>
+                                                    <label>対象者</label>
+                                                    <select value={editData.ownerId || ''} onChange={(e) => setEditData({...editData, ownerId: e.target.value, name: `${family.find(f => f.id === e.target.value)?.name || ''}のお小遣い`})}>
+                                                        {family.filter(f => f.role !== 'child').map(f => (
+                                                            <option key={f.id} value={f.id}>{f.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className={styles.formGroup}>
+                                                    <label>月額</label>
+                                                    <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                                </div>
+                                            </div>
+                                            <div className={styles.row}>
+                                                <div className={styles.formGroup}>
+                                                    <label>開始年</label>
+                                                    <input type="number" value={editData.startYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, startYear: Number(e.target.value)})} />
+                                                </div>
+                                                <div className={styles.formGroup}>
+                                                    <label>終了年</label>
+                                                    <input type="number" value={editData.endYear || settings.calculationEndYear} onChange={(e) => setEditData({...editData, endYear: Number(e.target.value)})} />
+                                                </div>
+                                            </div>
+                                            <div className={styles.editActions}>
+                                                <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                                <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <div className={styles.itemInfo}>
+                                                <span className={styles.itemName}>{item.name}</span>
+                                                <span className={styles.itemDetail}>
+                                                    {owner?.name} | {item.monthlyAmount.toLocaleString()}円/月
+                                                    {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
+                                                </span>
+                                            </div>
+                                            <div className={styles.itemActions}>
+                                                <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                    <Edit2 size={16} />
+                                                </button>
+                                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}

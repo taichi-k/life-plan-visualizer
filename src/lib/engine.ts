@@ -30,13 +30,13 @@ import {
 
 // 教育段階を取得
 function getEducationStage(age: number): string {
-    if (age < 3) return '未就学';
-    if (age < 6) return '幼稚園';
-    if (age < 12) return '小学校';
-    if (age < 15) return '中学校';
-    if (age < 18) return '高校';
-    if (age < 22) return '大学';
-    return '卒業';
+    if (age < 3) return 'preschool';
+    if (age < 6) return 'kindergarten';
+    if (age < 12) return 'elementary';
+    if (age < 15) return 'middleSchool';
+    if (age < 18) return 'highSchool';
+    if (age < 22) return 'university';
+    return 'graduated';
 }
 
 // 年齢別給与を補間計算
@@ -656,26 +656,52 @@ export function calculateLifePlan(
 
         // ================== 資産更新 ==================
         let totalAssetsVal = 0;
+        let totalInterestGain = 0;
+        let totalAccumulationContribution = 0;
+
+        // 前年の資産合計を取得（最初の年は初期資産）
+        const previousTotalAssets = results.length > 0 
+            ? results[results.length - 1].totalAssets 
+            : initialAssets.reduce((sum, a) => sum + a.currentValue, 0);
+
+        // 積立投資の合計を先に計算（現金から引くため）
+        let totalContributionFromCash = 0;
+        if (initialAssets.length > 0) {
+            initialAssets.forEach(asset => {
+                if (asset.isAccumulating && asset.monthlyContribution) {
+                    const startYear = asset.accumulationStartYear || settings.calculationStartYear;
+                    const endYear = asset.accumulationEndYear || settings.calculationEndYear;
+                    if (year >= startYear && year <= endYear) {
+                        totalContributionFromCash += asset.monthlyContribution * 12;
+                    }
+                }
+            });
+        }
 
         if (initialAssets.length > 0) {
             initialAssets.forEach(asset => {
                 let val = currentAssets[asset.id];
 
                 // 利息を加算
-                val += val * (asset.annualInterestRate / 100);
+                const interestGain = val * (asset.annualInterestRate / 100);
+                val += interestGain;
+                totalInterestGain += interestGain;
 
-                // 積立投資
+                // 積立投資（投資資産に加算）
                 if (asset.isAccumulating && asset.monthlyContribution) {
                     const startYear = asset.accumulationStartYear || settings.calculationStartYear;
                     const endYear = asset.accumulationEndYear || settings.calculationEndYear;
                     if (year >= startYear && year <= endYear) {
-                        val += asset.monthlyContribution * 12;
+                        const contribution = asset.monthlyContribution * 12;
+                        val += contribution;
+                        totalAccumulationContribution += contribution;
                     }
                 }
 
-                // キャッシュフローを現金資産に反映
+                // キャッシュフローを現金資産に反映し、積立投資分を差し引く
                 if (asset.id === cashAssetId) {
                     val += yearResults.cashFlow;
+                    val -= totalContributionFromCash; // 積立投資分を現金から差し引く
                 }
 
                 currentAssets[asset.id] = val;
@@ -689,6 +715,15 @@ export function calculateLifePlan(
         }
 
         yearResults.totalAssets = totalAssetsVal;
+        
+        // 資産変動の内訳を設定
+        yearResults.assetChangeBreakdown = {
+            interestGain: Math.round(totalInterestGain),
+            accumulationContribution: totalAccumulationContribution,
+            cashFlowImpact: yearResults.cashFlow,
+            totalChange: Math.round(totalAssetsVal - previousTotalAssets)
+        };
+        
         results.push(yearResults);
     }
 

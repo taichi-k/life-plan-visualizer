@@ -30,12 +30,20 @@ export const AssetChart: React.FC<AssetChartProps> = ({ data }) => {
     }
 
     // プラスとマイナスのデータを分離（小数をカット）
-    const chartData = data.map(d => ({
-        year: d.year,
-        totalAssets: Math.floor(d.totalAssets),
-        positiveAssets: d.totalAssets >= 0 ? Math.floor(d.totalAssets) : 0,
-        negativeAssets: d.totalAssets < 0 ? Math.floor(d.totalAssets) : 0,
-    }));
+    const chartData = data.map((d) => {
+        const currentAsset = Math.floor(d.totalAssets);
+        
+        return {
+            year: d.year,
+            totalAssets: currentAsset,
+            positiveAssets: currentAsset >= 0 ? currentAsset : 0,
+            negativeAssets: currentAsset < 0 ? currentAsset : 0,
+            // プラスの折れ線: 0以上の時のみ表示
+            positiveLineAssets: currentAsset >= 0 ? currentAsset : null,
+            // マイナスの折れ線: 0未満の時のみ表示
+            negativeLineAssets: currentAsset < 0 ? currentAsset : null,
+        };
+    });
 
     const hasNegative = data.some(d => d.totalAssets < 0);
     const maxAsset = Math.max(...data.map(d => d.totalAssets));
@@ -114,32 +122,44 @@ export const AssetChart: React.FC<AssetChartProps> = ({ data }) => {
                         />
                         <ReferenceLine y={0} stroke="#666" strokeOpacity={0.3} strokeDasharray="3 3" />
 
-                        {/* プラス領域（青） */}
+                        {/* プラス領域（青）- ステップ型 */}
                         <Area
-                            type="monotone"
+                            type="step"
                             dataKey="positiveAssets"
                             stroke="transparent"
                             fill="url(#colorPositive)"
                             fillOpacity={1}
                         />
 
-                        {/* マイナス領域（赤） */}
+                        {/* マイナス領域（赤）- ステップ型 */}
                         <Area
-                            type="monotone"
+                            type="step"
                             dataKey="negativeAssets"
                             stroke="transparent"
                             fill="url(#colorNegative)"
                             fillOpacity={1}
                         />
 
-                        {/* 折れ線グラフ */}
+                        {/* プラスの折れ線グラフ（青）- ステップ型 */}
                         <Line
-                            type="monotone"
-                            dataKey="totalAssets"
+                            type="step"
+                            dataKey="positiveLineAssets"
                             stroke="#0984e3"
                             strokeWidth={2}
                             dot={false}
                             activeDot={{ r: 6, fill: '#0984e3' }}
+                            connectNulls={false}
+                        />
+
+                        {/* マイナスの折れ線グラフ（赤）- ステップ型 */}
+                        <Line
+                            type="step"
+                            dataKey="negativeLineAssets"
+                            stroke="#d63031"
+                            strokeWidth={2}
+                            dot={false}
+                            activeDot={{ r: 6, fill: '#d63031' }}
+                            connectNulls={false}
                         />
                     </ComposedChart>
                 </ResponsiveContainer>

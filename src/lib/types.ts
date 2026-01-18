@@ -388,6 +388,13 @@ export interface YearlyResult {
   assets: Record<string, number>;
   totalAssets: number;
   events: string[];
+  // 資産変動の内訳（年間収支と資産残高の差分を説明するため）
+  assetChangeBreakdown?: {
+    interestGain: number;      // 利息・運用益
+    accumulationContribution: number;  // 積立投資
+    cashFlowImpact: number;    // キャッシュフローによる変動
+    totalChange: number;       // 資産の総変動額
+  };
 }
 
 // ============================================================

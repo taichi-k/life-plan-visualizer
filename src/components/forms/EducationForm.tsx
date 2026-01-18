@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../lib/store';
 import { EducationExpense, EDUCATION_COSTS } from '../../lib/types';
 import styles from './Forms.module.css';
-import { Trash2, Plus, GraduationCap, Calculator } from 'lucide-react';
+import { Trash2, Plus, GraduationCap, Calculator, Edit2, X } from 'lucide-react';
 
 export const EducationForm: React.FC = () => {
-    const { family, expenses, addExpense, removeExpense, settings } = useAppStore();
+    const { family, expenses, addExpense, updateExpense, removeExpense, settings } = useAppStore();
     const educationExpenses = expenses.filter(e => e.category === 'education') as EducationExpense[];
     const children = family.filter(f => f.role === 'child');
 
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [childId, setChildId] = useState(children[0]?.id || '');
     const [kindergartenType, setKindergartenType] = useState<'public' | 'private' | 'none'>('private');
     const [elementaryType, setElementaryType] = useState<'public' | 'private'>('public');
@@ -18,6 +19,39 @@ export const EducationForm: React.FC = () => {
     const [extracurricularMonthly, setExtracurricularMonthly] = useState(20000);
     const [extracurricularStartAge, setExtracurricularStartAge] = useState(6);
     const [extracurricularEndAge, setExtracurricularEndAge] = useState(18);
+
+    // 編集モードに入る
+    const startEdit = (item: EducationExpense) => {
+        setEditingId(item.id);
+        setChildId(item.childId);
+        setKindergartenType(item.kindergarten.type);
+        setElementaryType(item.elementary.type);
+        setJuniorHighType(item.juniorHigh.type);
+        setHighSchoolType(item.highSchool.type);
+        setUniversityType(item.university.type);
+        setExtracurricularMonthly(item.extracurricularMonthly || 0);
+        setExtracurricularStartAge(item.extracurricularStartAge || 6);
+        setExtracurricularEndAge(item.extracurricularEndAge || 18);
+    };
+
+    // 編集をキャンセル
+    const cancelEdit = () => {
+        setEditingId(null);
+        resetForm();
+    };
+
+    // フォームをリセット
+    const resetForm = () => {
+        setChildId(children[0]?.id || '');
+        setKindergartenType('private');
+        setElementaryType('public');
+        setJuniorHighType('public');
+        setHighSchoolType('public');
+        setUniversityType('private-arts');
+        setExtracurricularMonthly(20000);
+        setExtracurricularStartAge(6);
+        setExtracurricularEndAge(18);
+    };
 
     // プリセット
     const applyPreset = (preset: 'all-public' | 'standard' | 'all-private') => {
@@ -78,6 +112,26 @@ export const EducationForm: React.FC = () => {
             extracurricularEndAge,
         };
         addExpense(education);
+        resetForm();
+    };
+
+    const handleUpdate = () => {
+        if (!editingId || !childId) return;
+        const child = children.find(c => c.id === childId);
+        updateExpense(editingId, {
+            name: `${child?.name || '子供'}の教育費`,
+            childId,
+            kindergarten: { type: kindergartenType, startAge: 3 },
+            elementary: { type: elementaryType },
+            juniorHigh: { type: juniorHighType },
+            highSchool: { type: highSchoolType },
+            university: { type: universityType },
+            extracurricularMonthly,
+            extracurricularStartAge,
+            extracurricularEndAge,
+        });
+        setEditingId(null);
+        resetForm();
     };
 
     return (
@@ -91,16 +145,21 @@ export const EducationForm: React.FC = () => {
                 {educationExpenses.map((item) => {
                     const child = children.find(c => c.id === item.childId);
                     return (
-                        <div key={item.id} className={styles.listItem}>
+                        <div key={item.id} className={`${styles.listItem} ${editingId === item.id ? styles.editing : ''}`}>
                             <div className={styles.itemInfo}>
                                 <span className={styles.itemName}>{item.name}</span>
                                 <span className={styles.itemDetail}>
                                     {child?.name || '不明'} | 大学: {item.university.type}
                                 </span>
                             </div>
-                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                <Trash2 size={18} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '4px' }}>
+                                <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                    <Edit2 size={16} />
+                                </button>
+                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)} title="削除">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
@@ -113,7 +172,15 @@ export const EducationForm: React.FC = () => {
                 </div>
             ) : (
                 <div className={styles.addForm}>
-                    <h3 className={styles.formTitle}>教育費を追加</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 className={styles.formTitle}>{editingId ? '教育費を編集' : '教育費を追加'}</h3>
+                        {editingId && (
+                            <button type="button" className={styles.cancelBtn} onClick={cancelEdit}>
+                                <X size={16} />
+                                キャンセル
+                            </button>
+                        )}
+                    </div>
 
                     <div className={styles.formGroup}>
                         <label>対象の子供</label>
@@ -213,10 +280,17 @@ export const EducationForm: React.FC = () => {
                         <span>（約22年間）</span>
                     </div>
 
-                    <button className={styles.addBtn} onClick={handleAdd}>
-                        <Plus size={18} />
-                        教育費を追加
-                    </button>
+                    {editingId ? (
+                        <button className={styles.addBtn} onClick={handleUpdate}>
+                            <Edit2 size={18} />
+                            教育費を更新
+                        </button>
+                    ) : (
+                        <button className={styles.addBtn} onClick={handleAdd}>
+                            <Plus size={18} />
+                            教育費を追加
+                        </button>
+                    )}
                 </div>
             )}
         </div>
