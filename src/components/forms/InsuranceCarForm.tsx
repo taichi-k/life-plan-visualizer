@@ -4,6 +4,10 @@ import { InsuranceExpense, TaxExpense, CarExpense } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, Shield, Receipt, Car } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => yen / 10000;
+const toYen = (man: number) => man * 10000;
+
 type TabType = 'insurance' | 'tax' | 'car';
 
 export const InsuranceCarForm: React.FC = () => {
@@ -14,27 +18,27 @@ export const InsuranceCarForm: React.FC = () => {
     const taxExpenses = expenses.filter(e => e.category === 'tax') as TaxExpense[];
     const carExpenses = expenses.filter(e => e.category === 'car') as CarExpense[];
 
-    // 保険
+    // 保険 (万円単位)
     const [insuranceName, setInsuranceName] = useState('生命保険');
     const [insuranceType, setInsuranceType] = useState<'life' | 'medical' | 'cancer' | 'income' | 'other'>('life');
-    const [insuranceMonthly, setInsuranceMonthly] = useState(15000);
+    const [insuranceMonthlyMan, setInsuranceMonthlyMan] = useState(1.5);
     const [insuranceStartYear, setInsuranceStartYear] = useState(settings.calculationStartYear);
     const [insuranceEndYear, setInsuranceEndYear] = useState(settings.calculationEndYear);
 
-    // 税金
+    // 税金 (万円単位)
     const [useAutoTax, setUseAutoTax] = useState(true);
-    const [customTaxAmount, setCustomTaxAmount] = useState(1000000);
+    const [customTaxAmountMan, setCustomTaxAmountMan] = useState(100);
 
-    // 車
+    // 車 (万円単位)
     const [hasCar, setHasCar] = useState(true);
-    const [carPurchasePrice, setCarPurchasePrice] = useState(3000000);
+    const [carPurchasePriceMan, setCarPurchasePriceMan] = useState(300);
     const [carPurchaseYear, setCarPurchaseYear] = useState(settings.calculationStartYear);
     const [carReplacementInterval, setCarReplacementInterval] = useState(10);
-    const [carTaxYearly, setCarTaxYearly] = useState(40000);
-    const [carInsuranceYearly, setCarInsuranceYearly] = useState(80000);
-    const [carMaintenanceYearly, setCarMaintenanceYearly] = useState(100000);
-    const [carGasMonthly, setCarGasMonthly] = useState(15000);
-    const [carParkingMonthly, setCarParkingMonthly] = useState(15000);
+    const [carTaxYearlyMan, setCarTaxYearlyMan] = useState(4);
+    const [carInsuranceYearlyMan, setCarInsuranceYearlyMan] = useState(8);
+    const [carMaintenanceYearlyMan, setCarMaintenanceYearlyMan] = useState(10);
+    const [carGasMonthlyMan, setCarGasMonthlyMan] = useState(1.5);
+    const [carParkingMonthlyMan, setCarParkingMonthlyMan] = useState(1.5);
 
     const handleAddInsurance = () => {
         const insurance: InsuranceExpense = {
@@ -42,7 +46,7 @@ export const InsuranceCarForm: React.FC = () => {
             category: 'insurance',
             name: insuranceName,
             insuranceType,
-            monthlyPremium: insuranceMonthly,
+            monthlyPremium: toYen(insuranceMonthlyMan),
             startYear: insuranceStartYear,
             endYear: insuranceEndYear,
         };
@@ -55,7 +59,7 @@ export const InsuranceCarForm: React.FC = () => {
             category: 'tax',
             name: '税金・社会保険',
             useAutoCalculation: useAutoTax,
-            customAmount: useAutoTax ? undefined : customTaxAmount,
+            customAmount: useAutoTax ? undefined : toYen(customTaxAmountMan),
             customPeriodicity: 'yearly',
             startYear: settings.calculationStartYear,
         };
@@ -68,14 +72,14 @@ export const InsuranceCarForm: React.FC = () => {
             category: 'car',
             name: '自動車関連費',
             hasCar,
-            purchasePrice: carPurchasePrice,
+            purchasePrice: toYen(carPurchasePriceMan),
             purchaseYear: carPurchaseYear,
             replacementInterval: carReplacementInterval,
-            taxYearly: carTaxYearly,
-            insuranceYearly: carInsuranceYearly,
-            maintenanceYearly: carMaintenanceYearly,
-            gasMonthly: carGasMonthly,
-            parkingMonthly: carParkingMonthly,
+            taxYearly: toYen(carTaxYearlyMan),
+            insuranceYearly: toYen(carInsuranceYearlyMan),
+            maintenanceYearly: toYen(carMaintenanceYearlyMan),
+            gasMonthly: toYen(carGasMonthlyMan),
+            parkingMonthly: toYen(carParkingMonthlyMan),
             startYear: carPurchaseYear,
         };
         addExpense(car);
@@ -87,8 +91,8 @@ export const InsuranceCarForm: React.FC = () => {
         { id: 'car' as TabType, label: '自動車', icon: Car },
     ];
 
-    // 車の年間維持費計算
-    const carYearlyCost = carTaxYearly + carInsuranceYearly + carMaintenanceYearly + (carGasMonthly + carParkingMonthly) * 12;
+    // 車の年間維持費計算 (万円単位)
+    const carYearlyCostMan = carTaxYearlyMan + carInsuranceYearlyMan + carMaintenanceYearlyMan + (carGasMonthlyMan + carParkingMonthlyMan) * 12;
 
     return (
         <div className={styles.container}>
@@ -114,7 +118,7 @@ export const InsuranceCarForm: React.FC = () => {
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{item.name}</span>
                                     <span className={styles.itemDetail}>
-                                        {item.insuranceType} | {item.monthlyPremium.toLocaleString()}円/月
+                                        {item.insuranceType} | {toMan(item.monthlyPremium).toFixed(1)}万円/月
                                     </span>
                                 </div>
                                 <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
@@ -143,8 +147,8 @@ export const InsuranceCarForm: React.FC = () => {
                             </div>
                         </div>
                         <div className={styles.formGroup}>
-                            <label>月額保険料</label>
-                            <input type="number" value={insuranceMonthly} onChange={(e) => setInsuranceMonthly(Number(e.target.value))} />
+                            <label>月額保険料 (万円)</label>
+                            <input type="number" step="0.1" value={insuranceMonthlyMan} onChange={(e) => setInsuranceMonthlyMan(Number(e.target.value))} />
                         </div>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
@@ -172,7 +176,7 @@ export const InsuranceCarForm: React.FC = () => {
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{item.name}</span>
                                     <span className={styles.itemDetail}>
-                                        {item.useAutoCalculation ? '自動計算（収入の約20%）' : `${item.customAmount?.toLocaleString()}円/年`}
+                                        {item.useAutoCalculation ? '自動計算（収入の約20%）' : `${item.customAmount ? toMan(item.customAmount).toFixed(1) : 0}万円/年`}
                                     </span>
                                 </div>
                                 <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
@@ -199,8 +203,8 @@ export const InsuranceCarForm: React.FC = () => {
                         </div>
                         {!useAutoTax && (
                             <div className={styles.formGroup}>
-                                <label>年間税金・社会保険額</label>
-                                <input type="number" value={customTaxAmount} onChange={(e) => setCustomTaxAmount(Number(e.target.value))} />
+                                <label>年間税金・社会保険額 (万円)</label>
+                                <input type="number" step="0.1" value={customTaxAmountMan} onChange={(e) => setCustomTaxAmountMan(Number(e.target.value))} />
                             </div>
                         )}
                         <button className={styles.addBtn} onClick={handleAddTax}>
@@ -247,8 +251,8 @@ export const InsuranceCarForm: React.FC = () => {
                                 <div className={styles.sectionTitle}>車両購入</div>
                                 <div className={styles.row}>
                                     <div className={styles.formGroup}>
-                                        <label>購入価格</label>
-                                        <input type="number" value={carPurchasePrice} onChange={(e) => setCarPurchasePrice(Number(e.target.value))} />
+                                        <label>購入価格 (万円)</label>
+                                        <input type="number" step="0.1" value={carPurchasePriceMan} onChange={(e) => setCarPurchasePriceMan(Number(e.target.value))} />
                                     </div>
                                     <div className={styles.formGroup}>
                                         <label>購入年</label>
@@ -263,31 +267,31 @@ export const InsuranceCarForm: React.FC = () => {
                                 <div className={styles.sectionTitle}>維持費</div>
                                 <div className={styles.row}>
                                     <div className={styles.formGroup}>
-                                        <label>自動車税（年額）</label>
-                                        <input type="number" value={carTaxYearly} onChange={(e) => setCarTaxYearly(Number(e.target.value))} />
+                                        <label>自動車税（年額・万円）</label>
+                                        <input type="number" step="0.1" value={carTaxYearlyMan} onChange={(e) => setCarTaxYearlyMan(Number(e.target.value))} />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>自動車保険（年額）</label>
-                                        <input type="number" value={carInsuranceYearly} onChange={(e) => setCarInsuranceYearly(Number(e.target.value))} />
+                                        <label>自動車保険（年額・万円）</label>
+                                        <input type="number" step="0.1" value={carInsuranceYearlyMan} onChange={(e) => setCarInsuranceYearlyMan(Number(e.target.value))} />
                                     </div>
                                 </div>
                                 <div className={styles.row}>
                                     <div className={styles.formGroup}>
-                                        <label>車検・整備費（年平均）</label>
-                                        <input type="number" value={carMaintenanceYearly} onChange={(e) => setCarMaintenanceYearly(Number(e.target.value))} />
+                                        <label>車検・整備費（年平均・万円）</label>
+                                        <input type="number" step="0.1" value={carMaintenanceYearlyMan} onChange={(e) => setCarMaintenanceYearlyMan(Number(e.target.value))} />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>ガソリン代（月額）</label>
-                                        <input type="number" value={carGasMonthly} onChange={(e) => setCarGasMonthly(Number(e.target.value))} />
+                                        <label>ガソリン代（月額・万円）</label>
+                                        <input type="number" step="0.1" value={carGasMonthlyMan} onChange={(e) => setCarGasMonthlyMan(Number(e.target.value))} />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>駐車場代（月額）</label>
-                                        <input type="number" value={carParkingMonthly} onChange={(e) => setCarParkingMonthly(Number(e.target.value))} />
+                                        <label>駐車場代（月額・万円）</label>
+                                        <input type="number" step="0.1" value={carParkingMonthlyMan} onChange={(e) => setCarParkingMonthlyMan(Number(e.target.value))} />
                                     </div>
                                 </div>
 
                                 <div className={styles.previewBox}>
-                                    <span>年間維持費: <strong>{carYearlyCost.toLocaleString()}円</strong></span>
+                                    <span>年間維持費: <strong>{carYearlyCostMan.toFixed(1)}万円</strong></span>
                                     <span>（買い替え費用除く）</span>
                                 </div>
                             </>

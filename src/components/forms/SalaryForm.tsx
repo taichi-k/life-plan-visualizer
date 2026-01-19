@@ -4,6 +4,10 @@ import { SalaryIncome } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, TrendingUp, Edit2, Check, X } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => Math.round(yen / 10000);
+const toYen = (man: number) => man * 10000;
+
 // 典型的な年齢別年収テンプレート
 const SALARY_TEMPLATES = {
     standard: [
@@ -100,21 +104,22 @@ export const SalaryForm: React.FC = () => {
         const existing = curve.find(c => c.age === age);
 
         if (existing) {
-            // 編集ダイアログを表示（簡易的にprompt使用）
-            const newAmount = prompt(`${age}歳の年収を入力 (現在: ${existing.annualAmount.toLocaleString()}円)`, String(existing.annualAmount));
-            if (newAmount === null) return;
-            if (newAmount === '') {
+            // 編集ダイアログを表示（簡易的にprompt使用）- 万円単位
+            const currentMan = toMan(existing.annualAmount);
+            const newAmountStr = prompt(`${age}歳の年収を入力 (万円) (現在: ${currentMan.toLocaleString()}万円)`, String(currentMan));
+            if (newAmountStr === null) return;
+            if (newAmountStr === '') {
                 // 削除
                 setCurve(curve.filter(c => c.age !== age));
             } else {
-                setCurve(curve.map(c => c.age === age ? { ...c, annualAmount: Number(newAmount) } : c));
+                setCurve(curve.map(c => c.age === age ? { ...c, annualAmount: toYen(Number(newAmountStr)) } : c));
             }
         } else {
-            // 新規追加
-            const interpolated = interpolateSalary(curve, age);
-            const newAmount = prompt(`${age}歳の年収を入力`, String(interpolated));
-            if (newAmount === null || newAmount === '') return;
-            setCurve([...curve, { age, annualAmount: Number(newAmount) }].sort((a, b) => a.age - b.age));
+            // 新規追加 - 万円単位
+            const interpolatedMan = toMan(interpolateSalary(curve, age));
+            const newAmountStr = prompt(`${age}歳の年収を入力 (万円)`, String(interpolatedMan));
+            if (newAmountStr === null || newAmountStr === '') return;
+            setCurve([...curve, { age, annualAmount: toYen(Number(newAmountStr)) }].sort((a, b) => a.age - b.age));
         }
     };
 

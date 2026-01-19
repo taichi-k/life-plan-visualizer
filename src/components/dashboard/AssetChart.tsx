@@ -29,12 +29,13 @@ export const AssetChart: React.FC<AssetChartProps> = ({ data }) => {
         );
     }
 
-    // プラスとマイナスのデータを分離（小数をカット）
+    // プラスとマイナスのデータを分離（小数をカット、世帯主年齢をX軸に）
     const chartData = data.map((d) => {
         const currentAsset = Math.floor(d.totalAssets);
         
         return {
             year: d.year,
+            age: d.ageHusband ?? d.year, // 世帯主の年齢、なければ年を使用
             totalAssets: currentAsset,
             positiveAssets: currentAsset >= 0 ? currentAsset : 0,
             negativeAssets: currentAsset < 0 ? currentAsset : 0,
@@ -101,10 +102,11 @@ export const AssetChart: React.FC<AssetChartProps> = ({ data }) => {
                         </defs>
                         <CartesianGrid stroke="#f5f5f5" vertical={false} />
                         <XAxis
-                            dataKey="year"
-                            tick={{ fontSize: 11, fill: '#888' }}
+                            dataKey="age"
+                            tick={{ fontSize: 8, fill: '#888' }}
                             axisLine={false}
                             tickLine={false}
+                            interval={0}
                         />
                         <YAxis
                             tick={{ fontSize: 11, fill: '#888' }}
@@ -118,7 +120,10 @@ export const AssetChart: React.FC<AssetChartProps> = ({ data }) => {
                                 '総資産'
                             ]}
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 30px rgba(0,0,0,0.1)' }}
-                            labelFormatter={(label) => `${label}年`}
+                            labelFormatter={(label, payload) => {
+                                const year = payload?.[0]?.payload?.year;
+                                return year ? `${label}歳（${year}年）` : `${label}歳`;
+                            }}
                         />
                         <ReferenceLine y={0} stroke="#666" strokeOpacity={0.3} strokeDasharray="3 3" />
 

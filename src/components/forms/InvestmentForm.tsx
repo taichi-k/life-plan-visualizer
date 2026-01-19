@@ -4,25 +4,29 @@ import { Asset, AssetType } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, Edit2, Check, X, TrendingUp, PiggyBank } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => yen / 10000;
+const toYen = (man: number) => man * 10000;
+
 export const InvestmentForm: React.FC = () => {
     const { assets, addAsset, removeAsset, updateAsset, settings } = useAppStore();
 
-    // 新規追加用
+    // 新規追加用 (万円単位)
     const [name, setName] = useState('積立NISA');
-    const [currentValue, setCurrentValue] = useState(0);
+    const [currentValueMan, setCurrentValueMan] = useState(0);
     const [annualInterestRate, setAnnualInterestRate] = useState(3);
     const [isAccumulating, setIsAccumulating] = useState(true);
-    const [monthlyContribution, setMonthlyContribution] = useState(33333);
+    const [monthlyContributionMan, setMonthlyContributionMan] = useState(3.3333);
     const [accumulationStartYear, setAccumulationStartYear] = useState(settings.currentYear);
     const [accumulationEndYear, setAccumulationEndYear] = useState(settings.currentYear + 20);
 
-    // 編集用
+    // 編集用 (万円単位)
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
-    const [editCurrentValue, setEditCurrentValue] = useState(0);
+    const [editCurrentValueMan, setEditCurrentValueMan] = useState(0);
     const [editAnnualInterestRate, setEditAnnualInterestRate] = useState(3);
     const [editIsAccumulating, setEditIsAccumulating] = useState(true);
-    const [editMonthlyContribution, setEditMonthlyContribution] = useState(0);
+    const [editMonthlyContributionMan, setEditMonthlyContributionMan] = useState(0);
     const [editAccumulationStartYear, setEditAccumulationStartYear] = useState(settings.currentYear);
     const [editAccumulationEndYear, setEditAccumulationEndYear] = useState(settings.currentYear + 20);
 
@@ -32,11 +36,11 @@ export const InvestmentForm: React.FC = () => {
             id: crypto.randomUUID(),
             name,
             type: 'mutual-fund',
-            currentValue,
+            currentValue: toYen(currentValueMan),
             annualInterestRate,
             isCompounding: true,
             isAccumulating,
-            monthlyContribution: isAccumulating ? monthlyContribution : 0,
+            monthlyContribution: isAccumulating ? toYen(monthlyContributionMan) : 0,
             accumulationStartYear: isAccumulating ? accumulationStartYear : undefined,
             accumulationEndYear: isAccumulating ? accumulationEndYear : undefined,
         };
@@ -47,10 +51,10 @@ export const InvestmentForm: React.FC = () => {
     const startEdit = (asset: Asset) => {
         setEditingId(asset.id);
         setEditName(asset.name);
-        setEditCurrentValue(asset.currentValue);
+        setEditCurrentValueMan(toMan(asset.currentValue));
         setEditAnnualInterestRate(asset.annualInterestRate);
         setEditIsAccumulating(asset.isAccumulating || false);
-        setEditMonthlyContribution(asset.monthlyContribution || 0);
+        setEditMonthlyContributionMan(toMan(asset.monthlyContribution || 0));
         setEditAccumulationStartYear(asset.accumulationStartYear || settings.currentYear);
         setEditAccumulationEndYear(asset.accumulationEndYear || settings.currentYear + 20);
     };
@@ -63,29 +67,29 @@ export const InvestmentForm: React.FC = () => {
         if (!editingId || !editName) return;
         updateAsset(editingId, {
             name: editName,
-            currentValue: editCurrentValue,
+            currentValue: toYen(editCurrentValueMan),
             annualInterestRate: editAnnualInterestRate,
             isAccumulating: editIsAccumulating,
-            monthlyContribution: editIsAccumulating ? editMonthlyContribution : 0,
+            monthlyContribution: editIsAccumulating ? toYen(editMonthlyContributionMan) : 0,
             accumulationStartYear: editIsAccumulating ? editAccumulationStartYear : undefined,
             accumulationEndYear: editIsAccumulating ? editAccumulationEndYear : undefined,
         });
         setEditingId(null);
     };
 
-    // 将来の資産予測を計算
-    const calculateFutureValue = (initial: number, rate: number, monthly: number, years: number): number => {
-        let total = initial;
+    // 将来の資産予測を計算 (万円単位)
+    const calculateFutureValueMan = (initialMan: number, rate: number, monthlyMan: number, years: number): number => {
+        let total = initialMan;
         for (let i = 0; i < years; i++) {
-            total += monthly * 12;
+            total += monthlyMan * 12;
             total *= (1 + rate / 100);
         }
-        return Math.round(total);
+        return total;
     };
 
     const previewYears = accumulationEndYear - accumulationStartYear;
-    const previewFutureValue = calculateFutureValue(currentValue, annualInterestRate, isAccumulating ? monthlyContribution : 0, previewYears);
-    const previewTotalContribution = currentValue + (isAccumulating ? monthlyContribution * 12 * previewYears : 0);
+    const previewFutureValueMan = calculateFutureValueMan(currentValueMan, annualInterestRate, isAccumulating ? monthlyContributionMan : 0, previewYears);
+    const previewTotalContributionMan = currentValueMan + (isAccumulating ? monthlyContributionMan * 12 * previewYears : 0);
 
     // 積立投資用の資産（mutual-fund, stock）をフィルター
     const investmentAssets = assets.filter(a => a.type !== 'cash' && a.type !== 'deposit');
@@ -108,8 +112,8 @@ export const InvestmentForm: React.FC = () => {
                                         <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} />
                                     </div>
                                     <div className={styles.formGroup}>
-                                        <label>現在の資産額（円）</label>
-                                        <input type="number" value={editCurrentValue} onChange={(e) => setEditCurrentValue(Number(e.target.value))} />
+                                        <label>現在の資産額（万円）</label>
+                                        <input type="number" step="0.1" value={editCurrentValueMan} onChange={(e) => setEditCurrentValueMan(Number(e.target.value))} />
                                     </div>
                                 </div>
                                 <div className={styles.row}>
@@ -126,8 +130,8 @@ export const InvestmentForm: React.FC = () => {
                                     <>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
-                                                <label>毎月積立額（円）</label>
-                                                <input type="number" value={editMonthlyContribution} onChange={(e) => setEditMonthlyContribution(Number(e.target.value))} />
+                                                <label>毎月積立額（万円）</label>
+                                                <input type="number" step="0.1" value={editMonthlyContributionMan} onChange={(e) => setEditMonthlyContributionMan(Number(e.target.value))} />
                                             </div>
                                         </div>
                                         <div className={styles.row}>
@@ -156,8 +160,8 @@ export const InvestmentForm: React.FC = () => {
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{asset.name}</span>
                                     <span className={styles.itemDetail}>
-                                        現在: {asset.currentValue.toLocaleString()}円 | 利回り: {asset.annualInterestRate}%
-                                        {asset.isAccumulating && ` | 積立: ${(asset.monthlyContribution || 0).toLocaleString()}円/月`}
+                                        現在: {toMan(asset.currentValue).toFixed(1)}万円 | 利回り: {asset.annualInterestRate}%
+                                        {asset.isAccumulating && ` | 積立: ${toMan(asset.monthlyContribution || 0).toFixed(2)}万円/月`}
                                     </span>
                                 </div>
                                 <div className={styles.itemActions}>
@@ -184,8 +188,8 @@ export const InvestmentForm: React.FC = () => {
                         <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="例: 積立NISA" />
                     </div>
                     <div className={styles.formGroup}>
-                        <label>現在の資産額（円）</label>
-                        <input type="number" value={currentValue} onChange={(e) => setCurrentValue(Number(e.target.value))} />
+                        <label>現在の資産額（万円）</label>
+                        <input type="number" step="0.1" value={currentValueMan} onChange={(e) => setCurrentValueMan(Number(e.target.value))} />
                     </div>
                 </div>
 
@@ -205,8 +209,8 @@ export const InvestmentForm: React.FC = () => {
                     <>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
-                                <label>毎月積立額（円）</label>
-                                <input type="number" value={monthlyContribution} onChange={(e) => setMonthlyContribution(Number(e.target.value))} />
+                                <label>毎月積立額（万円）</label>
+                                <input type="number" step="0.1" value={monthlyContributionMan} onChange={(e) => setMonthlyContributionMan(Number(e.target.value))} />
                             </div>
                         </div>
                         <div className={styles.row}>
@@ -227,9 +231,9 @@ export const InvestmentForm: React.FC = () => {
                     <PiggyBank size={18} />
                     <div className={styles.previewContent}>
                         <div className={styles.previewLabel}>{previewYears}年後の予想資産額</div>
-                        <div className={styles.previewValue}>{previewFutureValue.toLocaleString()}円</div>
+                        <div className={styles.previewValue}>{previewFutureValueMan.toFixed(1)}万円</div>
                         <div className={styles.previewDetail}>
-                            (元本: {previewTotalContribution.toLocaleString()}円 → 運用益: {(previewFutureValue - previewTotalContribution).toLocaleString()}円)
+                            (元本: {previewTotalContributionMan.toFixed(1)}万円 → 運用益: {(previewFutureValueMan - previewTotalContributionMan).toFixed(1)}万円)
                         </div>
                     </div>
                 </div>

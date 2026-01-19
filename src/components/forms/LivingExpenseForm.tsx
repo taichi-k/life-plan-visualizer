@@ -4,6 +4,10 @@ import { LivingExpense, UtilityExpense, CommunicationExpense, MedicalExpense, Al
 import styles from './Forms.module.css';
 import { Trash2, Plus, ShoppingCart, Zap, Wifi, Heart, Wallet, Edit2, Check, X } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => yen / 10000;
+const toYen = (man: number) => man * 10000;
+
 type TabType = 'living' | 'utility' | 'communication' | 'medical' | 'allowance';
 
 export const LivingExpenseForm: React.FC = () => {
@@ -16,35 +20,35 @@ export const LivingExpenseForm: React.FC = () => {
     const medicalExpenses = expenses.filter(e => e.category === 'medical') as MedicalExpense[];
     const allowanceExpenses = expenses.filter(e => e.category === 'allowance') as AllowanceExpense[];
 
-    // 生活費
+    // 生活費 (万円単位)
     const [livingName, setLivingName] = useState('食費');
     const [livingSubcategory, setLivingSubcategory] = useState<'food' | 'daily' | 'entertainment' | 'clothing' | 'other'>('food');
-    const [livingMonthly, setLivingMonthly] = useState(60000);
+    const [livingMonthlyMan, setLivingMonthlyMan] = useState(6);
     const [livingStartYear, setLivingStartYear] = useState(settings.calculationStartYear);
     const [livingEndYear, setLivingEndYear] = useState(settings.calculationEndYear);
 
-    // 光熱費
-    const [electricityMonthly, setElectricityMonthly] = useState(12000);
-    const [gasMonthly, setGasMonthly] = useState(8000);
-    const [waterMonthly, setWaterMonthly] = useState(5000);
+    // 光熱費 (万円単位)
+    const [electricityMonthlyMan, setElectricityMonthlyMan] = useState(1.2);
+    const [gasMonthlyMan, setGasMonthlyMan] = useState(0.8);
+    const [waterMonthlyMan, setWaterMonthlyMan] = useState(0.5);
     const [utilityStartYear, setUtilityStartYear] = useState(settings.calculationStartYear);
     const [utilityEndYear, setUtilityEndYear] = useState(settings.calculationEndYear);
 
-    // 通信費
-    const [internetMonthly, setInternetMonthly] = useState(5000);
-    const [mobileMonthly, setMobileMonthly] = useState(15000);
-    const [subscriptionsMonthly, setSubscriptionsMonthly] = useState(3000);
+    // 通信費 (万円単位)
+    const [internetMonthlyMan, setInternetMonthlyMan] = useState(0.5);
+    const [mobileMonthlyMan, setMobileMonthlyMan] = useState(1.5);
+    const [subscriptionsMonthlyMan, setSubscriptionsMonthlyMan] = useState(0.3);
     const [communicationStartYear, setCommunicationStartYear] = useState(settings.calculationStartYear);
     const [communicationEndYear, setCommunicationEndYear] = useState(settings.calculationEndYear);
 
-    // 医療費
-    const [medicalMonthly, setMedicalMonthly] = useState(10000);
+    // 医療費 (万円単位)
+    const [medicalMonthlyMan, setMedicalMonthlyMan] = useState(1);
     const [medicalStartYear, setMedicalStartYear] = useState(settings.calculationStartYear);
     const [medicalEndYear, setMedicalEndYear] = useState(settings.calculationEndYear);
 
-    // お小遣い
+    // お小遣い (万円単位)
     const [allowanceOwnerId, setAllowanceOwnerId] = useState(family.find(f => f.role === 'husband')?.id || '');
-    const [allowanceMonthly, setAllowanceMonthly] = useState(30000);
+    const [allowanceMonthlyMan, setAllowanceMonthlyMan] = useState(3);
     const [allowanceStartYear, setAllowanceStartYear] = useState(settings.calculationStartYear);
     const [allowanceEndYear, setAllowanceEndYear] = useState(settings.calculationEndYear);
 
@@ -78,7 +82,7 @@ export const LivingExpenseForm: React.FC = () => {
             category: 'living',
             name: livingName,
             subcategory: livingSubcategory,
-            monthlyAmount: livingMonthly,
+            monthlyAmount: toYen(livingMonthlyMan),
             startYear: livingStartYear,
             endYear: livingEndYear,
         };
@@ -90,9 +94,9 @@ export const LivingExpenseForm: React.FC = () => {
             id: crypto.randomUUID(),
             category: 'utility',
             name: '光熱費',
-            electricityMonthly,
-            gasMonthly,
-            waterMonthly,
+            electricityMonthly: toYen(electricityMonthlyMan),
+            gasMonthly: toYen(gasMonthlyMan),
+            waterMonthly: toYen(waterMonthlyMan),
             startYear: utilityStartYear,
             endYear: utilityEndYear,
         };
@@ -104,9 +108,9 @@ export const LivingExpenseForm: React.FC = () => {
             id: crypto.randomUUID(),
             category: 'communication',
             name: '通信費',
-            internetMonthly,
-            mobileMonthly,
-            subscriptionsMonthly,
+            internetMonthly: toYen(internetMonthlyMan),
+            mobileMonthly: toYen(mobileMonthlyMan),
+            subscriptionsMonthly: toYen(subscriptionsMonthlyMan),
             startYear: communicationStartYear,
             endYear: communicationEndYear,
         };
@@ -118,7 +122,7 @@ export const LivingExpenseForm: React.FC = () => {
             id: crypto.randomUUID(),
             category: 'medical',
             name: '医療費',
-            monthlyAmount: medicalMonthly,
+            monthlyAmount: toYen(medicalMonthlyMan),
             startYear: medicalStartYear,
             endYear: medicalEndYear,
         };
@@ -132,7 +136,7 @@ export const LivingExpenseForm: React.FC = () => {
             category: 'allowance',
             name: `${owner?.name || ''}のお小遣い`,
             ownerId: allowanceOwnerId,
-            monthlyAmount: allowanceMonthly,
+            monthlyAmount: toYen(allowanceMonthlyMan),
             startYear: allowanceStartYear,
             endYear: allowanceEndYear,
         };
@@ -187,8 +191,8 @@ export const LivingExpenseForm: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className={styles.formGroup}>
-                                            <label>月額</label>
-                                            <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                            <label>月額 (万円)</label>
+                                            <input type="number" step="0.1" value={toMan(editData.monthlyAmount || 0)} onChange={(e) => setEditData({...editData, monthlyAmount: toYen(Number(e.target.value))})} />
                                         </div>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
@@ -209,7 +213,7 @@ export const LivingExpenseForm: React.FC = () => {
                                     <>
                                         <div className={styles.itemInfo}>
                                             <span className={styles.itemName}>{item.name}</span>
-                                            <span className={styles.itemDetail}>{item.monthlyAmount.toLocaleString()}円/月</span>
+                                            <span className={styles.itemDetail}>{toMan(item.monthlyAmount).toLocaleString()}万円/月</span>
                                         </div>
                                         <div className={styles.itemActions}>
                                             <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
@@ -244,8 +248,8 @@ export const LivingExpenseForm: React.FC = () => {
                             </div>
                         </div>
                         <div className={styles.formGroup}>
-                            <label>月額</label>
-                            <input type="number" value={livingMonthly} onChange={(e) => setLivingMonthly(Number(e.target.value))} />
+                            <label>月額 (万円)</label>
+                            <input type="number" step="0.1" value={livingMonthlyMan} onChange={(e) => setLivingMonthlyMan(Number(e.target.value))} />
                         </div>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
@@ -274,16 +278,16 @@ export const LivingExpenseForm: React.FC = () => {
                                     <div className={styles.editFormFull}>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
-                                                <label>電気代（月額）</label>
-                                                <input type="number" value={editData.electricityMonthly || 0} onChange={(e) => setEditData({...editData, electricityMonthly: Number(e.target.value)})} />
+                                                <label>電気代（月額・万円）</label>
+                                                <input type="number" step="0.1" value={toMan(editData.electricityMonthly || 0)} onChange={(e) => setEditData({...editData, electricityMonthly: toYen(Number(e.target.value))})} />
                                             </div>
                                             <div className={styles.formGroup}>
-                                                <label>ガス代（月額）</label>
-                                                <input type="number" value={editData.gasMonthly || 0} onChange={(e) => setEditData({...editData, gasMonthly: Number(e.target.value)})} />
+                                                <label>ガス代（月額・万円）</label>
+                                                <input type="number" step="0.1" value={toMan(editData.gasMonthly || 0)} onChange={(e) => setEditData({...editData, gasMonthly: toYen(Number(e.target.value))})} />
                                             </div>
                                             <div className={styles.formGroup}>
-                                                <label>水道代（月額）</label>
-                                                <input type="number" value={editData.waterMonthly || 0} onChange={(e) => setEditData({...editData, waterMonthly: Number(e.target.value)})} />
+                                                <label>水道代（月額・万円）</label>
+                                                <input type="number" step="0.1" value={toMan(editData.waterMonthly || 0)} onChange={(e) => setEditData({...editData, waterMonthly: toYen(Number(e.target.value))})} />
                                             </div>
                                         </div>
                                         <div className={styles.row}>
@@ -297,7 +301,7 @@ export const LivingExpenseForm: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className={styles.previewBox}>
-                                            <span>合計: <strong>{((editData.electricityMonthly || 0) + (editData.gasMonthly || 0) + (editData.waterMonthly || 0)).toLocaleString()}円/月</strong></span>
+                                            <span>合計: <strong>{toMan((editData.electricityMonthly || 0) + (editData.gasMonthly || 0) + (editData.waterMonthly || 0)).toFixed(1)}万円/月</strong></span>
                                         </div>
                                         <div className={styles.editActions}>
                                             <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
@@ -309,7 +313,7 @@ export const LivingExpenseForm: React.FC = () => {
                                         <div className={styles.itemInfo}>
                                             <span className={styles.itemName}>{item.name}</span>
                                             <span className={styles.itemDetail}>
-                                                電気{item.electricityMonthly?.toLocaleString()} + ガス{item.gasMonthly?.toLocaleString()} + 水道{item.waterMonthly?.toLocaleString()}円/月
+                                                電気{toMan(item.electricityMonthly || 0).toFixed(1)} + ガス{toMan(item.gasMonthly || 0).toFixed(1)} + 水道{toMan(item.waterMonthly || 0).toFixed(1)}万円/月
                                                 {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
                                             </span>
                                         </div>
@@ -331,16 +335,16 @@ export const LivingExpenseForm: React.FC = () => {
                         <h3 className={styles.formTitle}>光熱費を追加</h3>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
-                                <label>電気代（月額）</label>
-                                <input type="number" value={electricityMonthly} onChange={(e) => setElectricityMonthly(Number(e.target.value))} />
+                                <label>電気代（月額・万円）</label>
+                                <input type="number" step="0.1" value={electricityMonthlyMan} onChange={(e) => setElectricityMonthlyMan(Number(e.target.value))} />
                             </div>
                             <div className={styles.formGroup}>
-                                <label>ガス代（月額）</label>
-                                <input type="number" value={gasMonthly} onChange={(e) => setGasMonthly(Number(e.target.value))} />
+                                <label>ガス代（月額・万円）</label>
+                                <input type="number" step="0.1" value={gasMonthlyMan} onChange={(e) => setGasMonthlyMan(Number(e.target.value))} />
                             </div>
                             <div className={styles.formGroup}>
-                                <label>水道代（月額）</label>
-                                <input type="number" value={waterMonthly} onChange={(e) => setWaterMonthly(Number(e.target.value))} />
+                                <label>水道代（月額・万円）</label>
+                                <input type="number" step="0.1" value={waterMonthlyMan} onChange={(e) => setWaterMonthlyMan(Number(e.target.value))} />
                             </div>
                         </div>
                         <div className={styles.row}>
@@ -354,7 +358,7 @@ export const LivingExpenseForm: React.FC = () => {
                             </div>
                         </div>
                         <div className={styles.previewBox}>
-                            <span>合計: <strong>{(electricityMonthly + gasMonthly + waterMonthly).toLocaleString()}円/月</strong></span>
+                            <span>合計: <strong>{(electricityMonthlyMan + gasMonthlyMan + waterMonthlyMan).toFixed(1)}万円/月</strong></span>
                         </div>
                         <button className={styles.addBtn} onClick={handleAddUtility}>
                             <Plus size={18} /> 追加
@@ -373,17 +377,17 @@ export const LivingExpenseForm: React.FC = () => {
                                     <div className={styles.editFormFull}>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
-                                                <label>インターネット（月額）</label>
-                                                <input type="number" value={editData.internetMonthly || 0} onChange={(e) => setEditData({...editData, internetMonthly: Number(e.target.value)})} />
+                                                <label>インターネット（月額・万円）</label>
+                                                <input type="number" step="0.1" value={toMan(editData.internetMonthly || 0)} onChange={(e) => setEditData({...editData, internetMonthly: toYen(Number(e.target.value))})} />
                                             </div>
                                             <div className={styles.formGroup}>
-                                                <label>携帯電話（世帯合計）</label>
-                                                <input type="number" value={editData.mobileMonthly || 0} onChange={(e) => setEditData({...editData, mobileMonthly: Number(e.target.value)})} />
+                                                <label>携帯電話（世帯合計・万円）</label>
+                                                <input type="number" step="0.1" value={toMan(editData.mobileMonthly || 0)} onChange={(e) => setEditData({...editData, mobileMonthly: toYen(Number(e.target.value))})} />
                                             </div>
                                         </div>
                                         <div className={styles.formGroup}>
-                                            <label>サブスク等（月額）</label>
-                                            <input type="number" value={editData.subscriptionsMonthly || 0} onChange={(e) => setEditData({...editData, subscriptionsMonthly: Number(e.target.value)})} />
+                                            <label>サブスク等（月額・万円）</label>
+                                            <input type="number" step="0.1" value={toMan(editData.subscriptionsMonthly || 0)} onChange={(e) => setEditData({...editData, subscriptionsMonthly: toYen(Number(e.target.value))})} />
                                         </div>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
@@ -396,7 +400,7 @@ export const LivingExpenseForm: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className={styles.previewBox}>
-                                            <span>合計: <strong>{((editData.internetMonthly || 0) + (editData.mobileMonthly || 0) + (editData.subscriptionsMonthly || 0)).toLocaleString()}円/月</strong></span>
+                                            <span>合計: <strong>{toMan((editData.internetMonthly || 0) + (editData.mobileMonthly || 0) + (editData.subscriptionsMonthly || 0)).toFixed(1)}万円/月</strong></span>
                                         </div>
                                         <div className={styles.editActions}>
                                             <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
@@ -408,7 +412,7 @@ export const LivingExpenseForm: React.FC = () => {
                                         <div className={styles.itemInfo}>
                                             <span className={styles.itemName}>{item.name}</span>
                                             <span className={styles.itemDetail}>
-                                                {((item.internetMonthly || 0) + (item.mobileMonthly || 0) + (item.subscriptionsMonthly || 0)).toLocaleString()}円/月
+                                                {toMan((item.internetMonthly || 0) + (item.mobileMonthly || 0) + (item.subscriptionsMonthly || 0)).toFixed(1)}万円/月
                                                 {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
                                             </span>
                                         </div>
@@ -430,17 +434,17 @@ export const LivingExpenseForm: React.FC = () => {
                         <h3 className={styles.formTitle}>通信費を追加</h3>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
-                                <label>インターネット（月額）</label>
-                                <input type="number" value={internetMonthly} onChange={(e) => setInternetMonthly(Number(e.target.value))} />
+                                <label>インターネット（月額・万円）</label>
+                                <input type="number" step="0.1" value={internetMonthlyMan} onChange={(e) => setInternetMonthlyMan(Number(e.target.value))} />
                             </div>
                             <div className={styles.formGroup}>
-                                <label>携帯電話（世帯合計）</label>
-                                <input type="number" value={mobileMonthly} onChange={(e) => setMobileMonthly(Number(e.target.value))} />
+                                <label>携帯電話（世帯合計・万円）</label>
+                                <input type="number" step="0.1" value={mobileMonthlyMan} onChange={(e) => setMobileMonthlyMan(Number(e.target.value))} />
                             </div>
                         </div>
                         <div className={styles.formGroup}>
-                            <label>サブスク等（月額）</label>
-                            <input type="number" value={subscriptionsMonthly} onChange={(e) => setSubscriptionsMonthly(Number(e.target.value))} />
+                            <label>サブスク等（月額・万円）</label>
+                            <input type="number" step="0.1" value={subscriptionsMonthlyMan} onChange={(e) => setSubscriptionsMonthlyMan(Number(e.target.value))} />
                         </div>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
@@ -453,7 +457,7 @@ export const LivingExpenseForm: React.FC = () => {
                             </div>
                         </div>
                         <div className={styles.previewBox}>
-                            <span>合計: <strong>{(internetMonthly + mobileMonthly + subscriptionsMonthly).toLocaleString()}円/月</strong></span>
+                            <span>合計: <strong>{(internetMonthlyMan + mobileMonthlyMan + subscriptionsMonthlyMan).toFixed(1)}万円/月</strong></span>
                         </div>
                         <button className={styles.addBtn} onClick={handleAddCommunication}>
                             <Plus size={18} /> 追加
@@ -471,8 +475,8 @@ export const LivingExpenseForm: React.FC = () => {
                                 {editingId === item.id ? (
                                     <div className={styles.editFormFull}>
                                         <div className={styles.formGroup}>
-                                            <label>月額医療費</label>
-                                            <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                            <label>月額医療費 (万円)</label>
+                                            <input type="number" step="0.1" value={toMan(editData.monthlyAmount || 0)} onChange={(e) => setEditData({...editData, monthlyAmount: toYen(Number(e.target.value))})} />
                                         </div>
                                         <div className={styles.row}>
                                             <div className={styles.formGroup}>
@@ -494,7 +498,7 @@ export const LivingExpenseForm: React.FC = () => {
                                         <div className={styles.itemInfo}>
                                             <span className={styles.itemName}>{item.name}</span>
                                             <span className={styles.itemDetail}>
-                                                {item.monthlyAmount.toLocaleString()}円/月
+                                                {toMan(item.monthlyAmount).toFixed(1)}万円/月
                                                 {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
                                             </span>
                                         </div>
@@ -515,8 +519,8 @@ export const LivingExpenseForm: React.FC = () => {
                     <div className={styles.addForm}>
                         <h3 className={styles.formTitle}>医療費を追加</h3>
                         <div className={styles.formGroup}>
-                            <label>月額医療費</label>
-                            <input type="number" value={medicalMonthly} onChange={(e) => setMedicalMonthly(Number(e.target.value))} />
+                            <label>月額医療費 (万円)</label>
+                            <input type="number" step="0.1" value={medicalMonthlyMan} onChange={(e) => setMedicalMonthlyMan(Number(e.target.value))} />
                         </div>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
@@ -555,8 +559,8 @@ export const LivingExpenseForm: React.FC = () => {
                                                     </select>
                                                 </div>
                                                 <div className={styles.formGroup}>
-                                                    <label>月額</label>
-                                                    <input type="number" value={editData.monthlyAmount || 0} onChange={(e) => setEditData({...editData, monthlyAmount: Number(e.target.value)})} />
+                                                    <label>月額 (万円)</label>
+                                                    <input type="number" step="0.1" value={toMan(editData.monthlyAmount || 0)} onChange={(e) => setEditData({...editData, monthlyAmount: toYen(Number(e.target.value))})} />
                                                 </div>
                                             </div>
                                             <div className={styles.row}>
@@ -579,7 +583,7 @@ export const LivingExpenseForm: React.FC = () => {
                                             <div className={styles.itemInfo}>
                                                 <span className={styles.itemName}>{item.name}</span>
                                                 <span className={styles.itemDetail}>
-                                                    {owner?.name} | {item.monthlyAmount.toLocaleString()}円/月
+                                                    {owner?.name} | {toMan(item.monthlyAmount).toFixed(1)}万円/月
                                                     {item.startYear && item.endYear && ` (${item.startYear}〜${item.endYear}年)`}
                                                 </span>
                                             </div>
@@ -610,8 +614,8 @@ export const LivingExpenseForm: React.FC = () => {
                                 </select>
                             </div>
                             <div className={styles.formGroup}>
-                                <label>月額</label>
-                                <input type="number" value={allowanceMonthly} onChange={(e) => setAllowanceMonthly(Number(e.target.value))} />
+                                <label>月額 (万円)</label>
+                                <input type="number" step="0.1" value={allowanceMonthlyMan} onChange={(e) => setAllowanceMonthlyMan(Number(e.target.value))} />
                             </div>
                         </div>
                         <div className={styles.row}>

@@ -4,6 +4,10 @@ import { HousingExpense, VariableRatePeriod } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, Home, Calculator, Edit2, X, Check } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => Math.round(yen / 10000);
+const toYen = (man: number) => man * 10000;
+
 export const HousingForm: React.FC = () => {
     const { expenses, addExpense, removeExpense, updateExpense, settings } = useAppStore();
     const housingExpenses = expenses.filter(e => e.category === 'housing') as HousingExpense[];
@@ -14,13 +18,13 @@ export const HousingForm: React.FC = () => {
     const [name, setName] = useState('住宅費');
     const [housingType, setHousingType] = useState<'rent' | 'owned-loan' | 'owned-paid'>('rent');
 
-    // 賃貸
-    const [monthlyRent, setMonthlyRent] = useState(100000);
+    // 賃貸 (万円単位)
+    const [monthlyRentMan, setMonthlyRentMan] = useState(10);
     const [rentStartYear, setRentStartYear] = useState(settings.calculationStartYear);
     const [rentEndYear, setRentEndYear] = useState(settings.calculationEndYear);
 
-    // ローン
-    const [loanAmount, setLoanAmount] = useState(35000000);
+    // ローン (万円単位)
+    const [loanAmountMan, setLoanAmountMan] = useState(3500);
     const [loanInterestRate, setLoanInterestRate] = useState(0.5);
     const [loanYears, setLoanYears] = useState(35);
     const [loanStartYear, setLoanStartYear] = useState(settings.calculationStartYear);
@@ -31,22 +35,23 @@ export const HousingForm: React.FC = () => {
         { startYear: settings.calculationStartYear, endYear: settings.calculationStartYear + 10, interestRate: 0.5 },
     ]);
 
-    // 持ち家共通
-    const [propertyTaxYearly, setPropertyTaxYearly] = useState(120000);
+    // 持ち家共通 (万円単位)
+    const [propertyTaxYearlyMan, setPropertyTaxYearlyMan] = useState(12);
     const [isApartment, setIsApartment] = useState(false);
-    const [managementFeeMonthly, setManagementFeeMonthly] = useState(15000);
-    const [repairReserveFundMonthly, setRepairReserveFundMonthly] = useState(12000);
+    const [managementFeeMonthlyMan, setManagementFeeMonthlyMan] = useState(1.5);
+    const [repairReserveFundMonthlyMan, setRepairReserveFundMonthlyMan] = useState(1.2);
 
-    // 修繕
-    const [majorRepairCost, setMajorRepairCost] = useState(1500000);
+    // 修繕 (万円単位)
+    const [majorRepairCostMan, setMajorRepairCostMan] = useState(150);
     const [majorRepairInterval, setMajorRepairInterval] = useState(15);
     const [majorRepairStartYear, setMajorRepairStartYear] = useState(settings.calculationStartYear + 15);
 
-    // 火災保険
-    const [fireInsuranceYearly, setFireInsuranceYearly] = useState(20000);
+    // 火災保険 (万円単位)
+    const [fireInsuranceYearlyMan, setFireInsuranceYearlyMan] = useState(2);
 
     // ローン返済額のプレビュー計算
     const calculateMortgagePreview = (): { monthly: number; yearly: number; total: number } => {
+        const loanAmount = toYen(loanAmountMan);
         const rate = isVariableRate && variableRatePeriods.length > 0 
             ? variableRatePeriods[0].interestRate 
             : loanInterestRate;
@@ -92,11 +97,11 @@ export const HousingForm: React.FC = () => {
         setName(item.name);
         setHousingType(item.housingType);
         // 賃貸
-        setMonthlyRent(item.monthlyRent || 100000);
+        setMonthlyRentMan(toMan(item.monthlyRent || 100000));
         setRentStartYear(item.rentStartYear || settings.calculationStartYear);
         setRentEndYear(item.rentEndYear || settings.calculationEndYear);
         // ローン
-        setLoanAmount(item.loanAmount || 35000000);
+        setLoanAmountMan(toMan(item.loanAmount || 35000000));
         setLoanInterestRate(item.loanInterestRate || 0.5);
         setLoanYears(item.loanYears || 35);
         setLoanStartYear(item.loanStartYear || settings.calculationStartYear);
@@ -106,16 +111,16 @@ export const HousingForm: React.FC = () => {
             { startYear: settings.calculationStartYear, endYear: settings.calculationStartYear + 10, interestRate: 0.5 },
         ]);
         // 持ち家共通
-        setPropertyTaxYearly(item.propertyTaxYearly || 120000);
+        setPropertyTaxYearlyMan(toMan(item.propertyTaxYearly || 120000));
         setIsApartment(item.isApartment || false);
-        setManagementFeeMonthly(item.managementFeeMonthly || 15000);
-        setRepairReserveFundMonthly(item.repairReserveFundMonthly || 12000);
+        setManagementFeeMonthlyMan(toMan(item.managementFeeMonthly || 15000));
+        setRepairReserveFundMonthlyMan(toMan(item.repairReserveFundMonthly || 12000));
         // 修繕
-        setMajorRepairCost(item.majorRepairCost || 1500000);
+        setMajorRepairCostMan(toMan(item.majorRepairCost || 1500000));
         setMajorRepairInterval(item.majorRepairInterval || 15);
         setMajorRepairStartYear(item.majorRepairStartYear || settings.calculationStartYear + 15);
         // 火災保険
-        setFireInsuranceYearly(item.fireInsuranceYearly || 20000);
+        setFireInsuranceYearlyMan(toMan(item.fireInsuranceYearly || 20000));
     };
 
     // 編集キャンセル
@@ -124,10 +129,10 @@ export const HousingForm: React.FC = () => {
         // デフォルト値にリセット
         setName('住宅費');
         setHousingType('rent');
-        setMonthlyRent(100000);
+        setMonthlyRentMan(10);
         setRentStartYear(settings.calculationStartYear);
         setRentEndYear(settings.calculationEndYear);
-        setLoanAmount(35000000);
+        setLoanAmountMan(3500);
         setLoanInterestRate(0.5);
         setLoanYears(35);
         setLoanStartYear(settings.calculationStartYear);
@@ -135,14 +140,14 @@ export const HousingForm: React.FC = () => {
         setVariableRatePeriods([
             { startYear: settings.calculationStartYear, endYear: settings.calculationStartYear + 10, interestRate: 0.5 },
         ]);
-        setPropertyTaxYearly(120000);
+        setPropertyTaxYearlyMan(12);
         setIsApartment(false);
-        setManagementFeeMonthly(15000);
-        setRepairReserveFundMonthly(12000);
-        setMajorRepairCost(1500000);
+        setManagementFeeMonthlyMan(1.5);
+        setRepairReserveFundMonthlyMan(1.2);
+        setMajorRepairCostMan(150);
         setMajorRepairInterval(15);
         setMajorRepairStartYear(settings.calculationStartYear + 15);
-        setFireInsuranceYearly(20000);
+        setFireInsuranceYearlyMan(2);
     };
 
     // 編集保存
@@ -152,11 +157,11 @@ export const HousingForm: React.FC = () => {
             name,
             housingType,
             // 賃貸
-            monthlyRent: housingType === 'rent' ? monthlyRent : undefined,
+            monthlyRent: housingType === 'rent' ? toYen(monthlyRentMan) : undefined,
             rentStartYear: housingType === 'rent' ? rentStartYear : undefined,
             rentEndYear: housingType === 'rent' ? rentEndYear : undefined,
             // ローン
-            loanAmount: housingType === 'owned-loan' ? loanAmount : undefined,
+            loanAmount: housingType === 'owned-loan' ? toYen(loanAmountMan) : undefined,
             loanInterestRate: housingType === 'owned-loan' ? loanInterestRate : undefined,
             loanYears: housingType === 'owned-loan' ? loanYears : undefined,
             loanStartYear: housingType === 'owned-loan' ? loanStartYear : undefined,
@@ -164,14 +169,14 @@ export const HousingForm: React.FC = () => {
             isVariableRate: housingType === 'owned-loan' ? isVariableRate : undefined,
             variableRatePeriods: housingType === 'owned-loan' && isVariableRate ? variableRatePeriods : undefined,
             // 持ち家共通
-            propertyTaxYearly: housingType !== 'rent' ? propertyTaxYearly : undefined,
+            propertyTaxYearly: housingType !== 'rent' ? toYen(propertyTaxYearlyMan) : undefined,
             isApartment: housingType !== 'rent' ? isApartment : undefined,
-            managementFeeMonthly: housingType !== 'rent' && isApartment ? managementFeeMonthly : undefined,
-            repairReserveFundMonthly: housingType !== 'rent' && isApartment ? repairReserveFundMonthly : undefined,
-            majorRepairCost: housingType !== 'rent' ? majorRepairCost : undefined,
+            managementFeeMonthly: housingType !== 'rent' && isApartment ? toYen(managementFeeMonthlyMan) : undefined,
+            repairReserveFundMonthly: housingType !== 'rent' && isApartment ? toYen(repairReserveFundMonthlyMan) : undefined,
+            majorRepairCost: housingType !== 'rent' ? toYen(majorRepairCostMan) : undefined,
             majorRepairInterval: housingType !== 'rent' ? majorRepairInterval : undefined,
             majorRepairStartYear: housingType !== 'rent' ? majorRepairStartYear : undefined,
-            fireInsuranceYearly: housingType !== 'rent' ? fireInsuranceYearly : undefined,
+            fireInsuranceYearly: housingType !== 'rent' ? toYen(fireInsuranceYearlyMan) : undefined,
         };
         updateExpense(editingId, housing);
         cancelEdit();
@@ -184,11 +189,11 @@ export const HousingForm: React.FC = () => {
             name,
             housingType,
             // 賃貸
-            monthlyRent: housingType === 'rent' ? monthlyRent : undefined,
+            monthlyRent: housingType === 'rent' ? toYen(monthlyRentMan) : undefined,
             rentStartYear: housingType === 'rent' ? rentStartYear : undefined,
             rentEndYear: housingType === 'rent' ? rentEndYear : undefined,
             // ローン
-            loanAmount: housingType === 'owned-loan' ? loanAmount : undefined,
+            loanAmount: housingType === 'owned-loan' ? toYen(loanAmountMan) : undefined,
             loanInterestRate: housingType === 'owned-loan' ? loanInterestRate : undefined,
             loanYears: housingType === 'owned-loan' ? loanYears : undefined,
             loanStartYear: housingType === 'owned-loan' ? loanStartYear : undefined,
@@ -196,14 +201,14 @@ export const HousingForm: React.FC = () => {
             isVariableRate: housingType === 'owned-loan' ? isVariableRate : undefined,
             variableRatePeriods: housingType === 'owned-loan' && isVariableRate ? variableRatePeriods : undefined,
             // 持ち家共通
-            propertyTaxYearly: housingType !== 'rent' ? propertyTaxYearly : undefined,
+            propertyTaxYearly: housingType !== 'rent' ? toYen(propertyTaxYearlyMan) : undefined,
             isApartment: housingType !== 'rent' ? isApartment : undefined,
-            managementFeeMonthly: housingType !== 'rent' && isApartment ? managementFeeMonthly : undefined,
-            repairReserveFundMonthly: housingType !== 'rent' && isApartment ? repairReserveFundMonthly : undefined,
-            majorRepairCost: housingType !== 'rent' ? majorRepairCost : undefined,
+            managementFeeMonthly: housingType !== 'rent' && isApartment ? toYen(managementFeeMonthlyMan) : undefined,
+            repairReserveFundMonthly: housingType !== 'rent' && isApartment ? toYen(repairReserveFundMonthlyMan) : undefined,
+            majorRepairCost: housingType !== 'rent' ? toYen(majorRepairCostMan) : undefined,
             majorRepairInterval: housingType !== 'rent' ? majorRepairInterval : undefined,
             majorRepairStartYear: housingType !== 'rent' ? majorRepairStartYear : undefined,
-            fireInsuranceYearly: housingType !== 'rent' ? fireInsuranceYearly : undefined,
+            fireInsuranceYearly: housingType !== 'rent' ? toYen(fireInsuranceYearlyMan) : undefined,
         };
         addExpense(housing);
     };
@@ -224,8 +229,8 @@ export const HousingForm: React.FC = () => {
                             <span className={styles.itemName}>{item.name}</span>
                             <span className={styles.itemDetail}>
                                 {item.housingType === 'rent' ? '賃貸' : item.housingType === 'owned-loan' ? '持ち家(ローン)' : '持ち家(完済済)'}
-                                {item.housingType === 'rent' && item.monthlyRent && ` | ${item.monthlyRent.toLocaleString()}円/月`}
-                                {item.housingType === 'owned-loan' && item.loanAmount && ` | ${(item.loanAmount / 10000).toLocaleString()}万円`}
+                                {item.housingType === 'rent' && item.monthlyRent && ` | ${toMan(item.monthlyRent).toLocaleString()}万円/月`}
+                                {item.housingType === 'owned-loan' && item.loanAmount && ` | ${toMan(item.loanAmount).toLocaleString()}万円`}
                             </span>
                         </div>
                         <div className={styles.itemActions}>
@@ -267,11 +272,12 @@ export const HousingForm: React.FC = () => {
                 {housingType === 'rent' && (
                     <>
                         <div className={styles.formGroup}>
-                            <label>月額家賃</label>
+                            <label>月額家賃 (万円)</label>
                             <input
                                 type="number"
-                                value={monthlyRent}
-                                onChange={(e) => setMonthlyRent(Number(e.target.value))}
+                                step="0.1"
+                                value={monthlyRentMan}
+                                onChange={(e) => setMonthlyRentMan(Number(e.target.value))}
                             />
                         </div>
                         <div className={styles.row}>
@@ -300,11 +306,11 @@ export const HousingForm: React.FC = () => {
                     <>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
-                                <label>借入額（円）</label>
+                                <label>借入額（万円）</label>
                                 <input
                                     type="number"
-                                    value={loanAmount}
-                                    onChange={(e) => setLoanAmount(Number(e.target.value))}
+                                    value={loanAmountMan}
+                                    onChange={(e) => setLoanAmountMan(Number(e.target.value))}
                                 />
                             </div>
                             <div className={styles.formGroup}>
@@ -406,9 +412,9 @@ export const HousingForm: React.FC = () => {
 
                         <div className={styles.previewBox}>
                             <Calculator size={16} />
-                            <span>月々返済{isVariableRate ? '(初期)' : ''}: <strong>{mortgage.monthly.toLocaleString()}円</strong></span>
-                            <span>年間: {mortgage.yearly.toLocaleString()}円</span>
-                            {!isVariableRate && <span>総支払額: {mortgage.total.toLocaleString()}円</span>}
+                            <span>月々返済{isVariableRate ? '(初期)' : ''}: <strong>{toMan(mortgage.monthly).toFixed(1)}万円</strong></span>
+                            <span>年間: {toMan(mortgage.yearly).toFixed(1)}万円</span>
+                            {!isVariableRate && <span>総支払額: {toMan(mortgage.total).toLocaleString()}万円</span>}
                             {isVariableRate && <span style={{ color: '#888', fontSize: '11px' }}>※変動金利のため総支払額は目安です</span>}
                         </div>
                     </>
@@ -418,11 +424,12 @@ export const HousingForm: React.FC = () => {
                 {housingType !== 'rent' && (
                     <>
                         <div className={styles.formGroup}>
-                            <label>固定資産税（年額）</label>
+                            <label>固定資産税（年額・万円）</label>
                             <input
                                 type="number"
-                                value={propertyTaxYearly}
-                                onChange={(e) => setPropertyTaxYearly(Number(e.target.value))}
+                                step="0.1"
+                                value={propertyTaxYearlyMan}
+                                onChange={(e) => setPropertyTaxYearlyMan(Number(e.target.value))}
                             />
                         </div>
 
@@ -439,19 +446,21 @@ export const HousingForm: React.FC = () => {
                         {isApartment && (
                             <div className={styles.row}>
                                 <div className={styles.formGroup}>
-                                    <label>管理費（月額）</label>
+                                    <label>管理費（月額・万円）</label>
                                     <input
                                         type="number"
-                                        value={managementFeeMonthly}
-                                        onChange={(e) => setManagementFeeMonthly(Number(e.target.value))}
+                                        step="0.1"
+                                        value={managementFeeMonthlyMan}
+                                        onChange={(e) => setManagementFeeMonthlyMan(Number(e.target.value))}
                                     />
                                 </div>
                                 <div className={styles.formGroup}>
-                                    <label>修繕積立金（月額）</label>
+                                    <label>修繕積立金（月額・万円）</label>
                                     <input
                                         type="number"
-                                        value={repairReserveFundMonthly}
-                                        onChange={(e) => setRepairReserveFundMonthly(Number(e.target.value))}
+                                        step="0.1"
+                                        value={repairReserveFundMonthlyMan}
+                                        onChange={(e) => setRepairReserveFundMonthlyMan(Number(e.target.value))}
                                     />
                                 </div>
                             </div>
@@ -460,11 +469,11 @@ export const HousingForm: React.FC = () => {
                         <div className={styles.sectionTitle}>大規模修繕（戸建・マンション共通）</div>
                         <div className={styles.row}>
                             <div className={styles.formGroup}>
-                                <label>修繕費用（1回あたり）</label>
+                                <label>修繕費用（1回あたり・万円）</label>
                                 <input
                                     type="number"
-                                    value={majorRepairCost}
-                                    onChange={(e) => setMajorRepairCost(Number(e.target.value))}
+                                    value={majorRepairCostMan}
+                                    onChange={(e) => setMajorRepairCostMan(Number(e.target.value))}
                                 />
                             </div>
                             <div className={styles.formGroup}>
@@ -486,11 +495,12 @@ export const HousingForm: React.FC = () => {
                         </div>
 
                         <div className={styles.formGroup}>
-                            <label>火災保険（年額）</label>
+                            <label>火災保険（年額・万円）</label>
                             <input
                                 type="number"
-                                value={fireInsuranceYearly}
-                                onChange={(e) => setFireInsuranceYearly(Number(e.target.value))}
+                                step="0.1"
+                                value={fireInsuranceYearlyMan}
+                                onChange={(e) => setFireInsuranceYearlyMan(Number(e.target.value))}
                             />
                         </div>
                     </>

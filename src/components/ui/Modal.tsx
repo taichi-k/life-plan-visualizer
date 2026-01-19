@@ -22,12 +22,30 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children }
 
     useEffect(() => {
         if (isOpen) {
+            // スクロール位置を保存し、背景を固定
+            const scrollY = window.scrollY;
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
             document.body.style.overflow = 'hidden';
         } else {
-            document.body.style.overflow = 'unset';
+            // スクロール位置を復元
+            const scrollY = document.body.style.top;
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            document.body.style.overflow = '';
+            window.scrollTo(0, parseInt(scrollY || '0') * -1);
         }
         return () => {
-            document.body.style.overflow = 'unset';
+            const scrollY = document.body.style.top;
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            document.body.style.overflow = '';
+            if (scrollY) {
+                window.scrollTo(0, parseInt(scrollY) * -1);
+            }
         };
     }, [isOpen]);
 

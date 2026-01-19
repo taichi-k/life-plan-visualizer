@@ -134,10 +134,11 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
 
     const getCellStyle = (category?: string, value?: number | string, educationStage?: string) => {
         const base: React.CSSProperties = {
-            padding: '6px 4px',
+            padding: '4px 4px',
             textAlign: 'right',
             whiteSpace: 'nowrap',
-            fontSize: '11px'
+            fontSize: '10px',
+            maxWidth: '68px'
         };
 
         if (category === 'income') {
@@ -153,7 +154,7 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
             }
         }
         if (category === 'event') {
-            return { ...base, textAlign: 'left' as const, fontSize: '11px', color: '#666', whiteSpace: 'pre-line' as const, minWidth: '150px', lineHeight: 1.4 };
+            return { ...base, textAlign: 'left' as const, fontSize: '10px', color: '#666', whiteSpace: 'pre-line' as const, lineHeight: 1.3, maxWidth: 'none' };
         }
         if (category === 'age') {
             const bg = getEducationStageBackground(educationStage);
@@ -241,12 +242,12 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                         </th>
                         {years.map(year => (
                             <th key={year} style={{
-                                padding: '8px 4px',
+                                padding: '6px 2px',
                                 textAlign: 'center',
-                                minWidth: '50px',
+                                minWidth: '38px',
                                 color: 'white',
                                 fontWeight: 500,
-                                fontSize: '11px'
+                                fontSize: '10px'
                             }}>
                                 {year}年
                             </th>

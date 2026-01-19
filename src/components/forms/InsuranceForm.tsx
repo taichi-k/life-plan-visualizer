@@ -4,6 +4,10 @@ import { InsuranceExpense } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, Edit2, Check, X } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => yen / 10000;
+const toYen = (man: number) => man * 10000;
+
 const INSURANCE_TYPE_LABELS: Record<string, string> = {
     life: '生命保険',
     medical: '医療保険',
@@ -16,18 +20,18 @@ export const InsuranceForm: React.FC = () => {
     const { expenses, addExpense, updateExpense, removeExpense, settings } = useAppStore();
     const insuranceExpenses = expenses.filter(e => e.category === 'insurance') as InsuranceExpense[];
 
-    // 新規追加用
+    // 新規追加用 (万円単位)
     const [insuranceName, setInsuranceName] = useState('生命保険');
     const [insuranceType, setInsuranceType] = useState<'life' | 'medical' | 'cancer' | 'income' | 'other'>('life');
-    const [insuranceMonthly, setInsuranceMonthly] = useState(15000);
+    const [insuranceMonthlyMan, setInsuranceMonthlyMan] = useState(1.5);
     const [insuranceStartYear, setInsuranceStartYear] = useState(settings.calculationStartYear);
     const [insuranceEndYear, setInsuranceEndYear] = useState(settings.calculationEndYear);
 
-    // 編集用
+    // 編集用 (万円単位)
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState('');
     const [editType, setEditType] = useState<'life' | 'medical' | 'cancer' | 'income' | 'other'>('life');
-    const [editMonthly, setEditMonthly] = useState(0);
+    const [editMonthlyMan, setEditMonthlyMan] = useState(0);
     const [editStartYear, setEditStartYear] = useState(0);
     const [editEndYear, setEditEndYear] = useState(0);
 
@@ -37,20 +41,20 @@ export const InsuranceForm: React.FC = () => {
             category: 'insurance',
             name: insuranceName,
             insuranceType,
-            monthlyPremium: insuranceMonthly,
+            monthlyPremium: toYen(insuranceMonthlyMan),
             startYear: insuranceStartYear,
             endYear: insuranceEndYear,
         };
         addExpense(insurance);
         setInsuranceName('生命保険');
-        setInsuranceMonthly(15000);
+        setInsuranceMonthlyMan(1.5);
     };
 
     const handleStartEdit = (item: InsuranceExpense) => {
         setEditingId(item.id);
         setEditName(item.name);
         setEditType(item.insuranceType);
-        setEditMonthly(item.monthlyPremium);
+        setEditMonthlyMan(toMan(item.monthlyPremium));
         setEditStartYear(item.startYear || settings.calculationStartYear);
         setEditEndYear(item.endYear || settings.calculationEndYear);
     };
@@ -62,7 +66,7 @@ export const InsuranceForm: React.FC = () => {
             category: 'insurance',
             name: editName,
             insuranceType: editType,
-            monthlyPremium: editMonthly,
+            monthlyPremium: toYen(editMonthlyMan),
             startYear: editStartYear,
             endYear: editEndYear,
         };
@@ -107,11 +111,12 @@ export const InsuranceForm: React.FC = () => {
                                 </div>
                                 <div className={styles.row}>
                                     <div className={styles.formGroup}>
-                                        <label>月額保険料</label>
+                                        <label>月額保険料 (万円)</label>
                                         <input
                                             type="number"
-                                            value={editMonthly}
-                                            onChange={(e) => setEditMonthly(Number(e.target.value))}
+                                            step="0.1"
+                                            value={editMonthlyMan}
+                                            onChange={(e) => setEditMonthlyMan(Number(e.target.value))}
                                         />
                                     </div>
                                     <div className={styles.formGroup}>
@@ -145,7 +150,7 @@ export const InsuranceForm: React.FC = () => {
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{item.name}</span>
                                     <span className={styles.itemDetail}>
-                                        {INSURANCE_TYPE_LABELS[item.insuranceType]} | {item.monthlyPremium.toLocaleString()}円/月 | {item.startYear}年〜{item.endYear}年
+                                        {INSURANCE_TYPE_LABELS[item.insuranceType]} | {toMan(item.monthlyPremium).toFixed(1)}万円/月 | {item.startYear}年〜{item.endYear}年
                                     </span>
                                 </div>
                                 <div className={styles.itemActions}>
@@ -188,11 +193,12 @@ export const InsuranceForm: React.FC = () => {
                     </div>
                 </div>
                 <div className={styles.formGroup}>
-                    <label>月額保険料</label>
+                    <label>月額保険料 (万円)</label>
                     <input
                         type="number"
-                        value={insuranceMonthly}
-                        onChange={(e) => setInsuranceMonthly(Number(e.target.value))}
+                        step="0.1"
+                        value={insuranceMonthlyMan}
+                        onChange={(e) => setInsuranceMonthlyMan(Number(e.target.value))}
                     />
                 </div>
                 <div className={styles.row}>

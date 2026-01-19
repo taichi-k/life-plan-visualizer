@@ -47,10 +47,11 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
         setVisibleItems(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
-    // データを整形
+    // データを整形（世帯主の年齢をX軸に使用）
     const chartData = data.map(d => {
         const row: Record<string, any> = {
             year: d.year,
+            age: d.ageHusband ?? d.year, // 世帯主の年齢、なければ年を使用
             totalIncome: d.totalIncome,
             totalExpense: d.totalExpense,
         };
@@ -148,11 +149,11 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                     >
                         <CartesianGrid stroke="#f5f5f5" vertical={false} />
                         <XAxis
-                            dataKey="year"
-                            scale="band"
-                            tick={{ fontSize: 11, fill: '#888' }}
+                            dataKey="age"
+                            tick={{ fontSize: 8, fill: '#888' }}
                             axisLine={false}
                             tickLine={false}
+                            interval={0}
                         />
                         <YAxis
                             tick={{ fontSize: 11, fill: '#888' }}
@@ -178,7 +179,7 @@ export const BalanceChart: React.FC<BalanceChartProps> = ({ data }) => {
                                             boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
                                             minWidth: '160px'
                                         }}>
-                                            <p style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>{label}年</p>
+                                            <p style={{ fontWeight: 600, marginBottom: '8px', color: '#333' }}>{label}歳（{data?.year}年）</p>
                                             <p style={{ margin: '4px 0', color: '#d63031', fontWeight: 600, fontSize: '13px' }}>
                                                 📊 総費用: {totalExpense.toLocaleString()}円
                                             </p>

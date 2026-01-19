@@ -4,6 +4,10 @@ import { EducationExpense, EDUCATION_COSTS } from '../../lib/types';
 import styles from './Forms.module.css';
 import { Trash2, Plus, GraduationCap, Calculator, Edit2, X } from 'lucide-react';
 
+// 万円 <-> 円 変換ヘルパー
+const toMan = (yen: number) => yen / 10000;
+const toYen = (man: number) => man * 10000;
+
 export const EducationForm: React.FC = () => {
     const { family, expenses, addExpense, updateExpense, removeExpense, settings } = useAppStore();
     const educationExpenses = expenses.filter(e => e.category === 'education') as EducationExpense[];
@@ -16,7 +20,7 @@ export const EducationForm: React.FC = () => {
     const [juniorHighType, setJuniorHighType] = useState<'public' | 'private'>('public');
     const [highSchoolType, setHighSchoolType] = useState<'public' | 'private'>('public');
     const [universityType, setUniversityType] = useState<'national' | 'public' | 'private-arts' | 'private-science' | 'none'>('private-arts');
-    const [extracurricularMonthly, setExtracurricularMonthly] = useState(20000);
+    const [extracurricularMonthlyMan, setExtracurricularMonthlyMan] = useState(2);
     const [extracurricularStartAge, setExtracurricularStartAge] = useState(6);
     const [extracurricularEndAge, setExtracurricularEndAge] = useState(18);
 
@@ -29,7 +33,7 @@ export const EducationForm: React.FC = () => {
         setJuniorHighType(item.juniorHigh.type);
         setHighSchoolType(item.highSchool.type);
         setUniversityType(item.university.type);
-        setExtracurricularMonthly(item.extracurricularMonthly || 0);
+        setExtracurricularMonthlyMan(toMan(item.extracurricularMonthly || 0));
         setExtracurricularStartAge(item.extracurricularStartAge || 6);
         setExtracurricularEndAge(item.extracurricularEndAge || 18);
     };
@@ -48,7 +52,7 @@ export const EducationForm: React.FC = () => {
         setJuniorHighType('public');
         setHighSchoolType('public');
         setUniversityType('private-arts');
-        setExtracurricularMonthly(20000);
+        setExtracurricularMonthlyMan(2);
         setExtracurricularStartAge(6);
         setExtracurricularEndAge(18);
     };
@@ -90,7 +94,7 @@ export const EducationForm: React.FC = () => {
         }
         // 習い事
         const extraYears = Math.max(0, extracurricularEndAge - extracurricularStartAge);
-        total += extracurricularMonthly * 12 * extraYears;
+        total += toYen(extracurricularMonthlyMan) * 12 * extraYears;
         return total;
     };
 
@@ -107,7 +111,7 @@ export const EducationForm: React.FC = () => {
             juniorHigh: { type: juniorHighType },
             highSchool: { type: highSchoolType },
             university: { type: universityType },
-            extracurricularMonthly,
+            extracurricularMonthly: toYen(extracurricularMonthlyMan),
             extracurricularStartAge,
             extracurricularEndAge,
         };
@@ -126,7 +130,7 @@ export const EducationForm: React.FC = () => {
             juniorHigh: { type: juniorHighType },
             highSchool: { type: highSchoolType },
             university: { type: universityType },
-            extracurricularMonthly,
+            extracurricularMonthly: toYen(extracurricularMonthlyMan),
             extracurricularStartAge,
             extracurricularEndAge,
         });
@@ -249,11 +253,12 @@ export const EducationForm: React.FC = () => {
                     <div className={styles.sectionTitle}>習い事・塾（任意）</div>
                     <div className={styles.row}>
                         <div className={styles.formGroup}>
-                            <label>月額費用</label>
+                            <label>月額費用 (万円)</label>
                             <input
                                 type="number"
-                                value={extracurricularMonthly}
-                                onChange={(e) => setExtracurricularMonthly(Number(e.target.value))}
+                                step="0.1"
+                                value={extracurricularMonthlyMan}
+                                onChange={(e) => setExtracurricularMonthlyMan(Number(e.target.value))}
                             />
                         </div>
                         <div className={styles.formGroup}>
@@ -276,7 +281,7 @@ export const EducationForm: React.FC = () => {
 
                     <div className={styles.previewBox}>
                         <Calculator size={16} />
-                        <span>推定総額: <strong>{calculateTotalEducationCost().toLocaleString()}円</strong></span>
+                        <span>推定総額: <strong>{toMan(calculateTotalEducationCost()).toFixed(1)}万円</strong></span>
                         <span>（約22年間）</span>
                     </div>
 
