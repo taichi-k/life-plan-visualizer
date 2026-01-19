@@ -1,7 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../lib/store';
 import styles from './Forms.module.css';
-import { Save } from 'lucide-react';
 
 export const SettingsForm: React.FC = () => {
     const { settings, setSettings } = useAppStore();
@@ -30,6 +29,21 @@ export const SettingsForm: React.FC = () => {
                     value={settings.calculationEndYear}
                     onChange={(e) => handleChange('calculationEndYear', Number(e.target.value))}
                 />
+            </div>
+
+            <div className={styles.formGroup}>
+                <label>インフレ率 (年率 %)</label>
+                <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    value={settings.inflationRate ?? 0}
+                    onChange={(e) => handleChange('inflationRate', Number(e.target.value))}
+                />
+                <small className={styles.hint}>
+                    生活費・光熱費・通信費・医療費・賃貸料などに適用されます
+                </small>
             </div>
 
             <div className={styles.note}>

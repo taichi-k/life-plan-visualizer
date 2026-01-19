@@ -92,6 +92,78 @@ function calculatePension(pension: PensionIncome, age: number): number {
     return total;
 }
 
+// 年金所得税を計算（公的年金等控除を適用）
+function calculatePensionTax(annualPension: number, age: number): number {
+    // 公的年金等控除を計算（65歳以上と未満で異なる）
+    let pensionDeduction = 0;
+    
+    if (age >= 65) {
+        // 65歳以上
+        if (annualPension <= 3300000) {
+            pensionDeduction = 1100000;
+        } else if (annualPension <= 4100000) {
+            pensionDeduction = annualPension * 0.25 + 275000;
+        } else if (annualPension <= 7700000) {
+            pensionDeduction = annualPension * 0.15 + 685000;
+        } else if (annualPension <= 10000000) {
+            pensionDeduction = annualPension * 0.05 + 1455000;
+        } else {
+            pensionDeduction = 1955000;
+        }
+    } else {
+        // 65歳未満
+        if (annualPension <= 1300000) {
+            pensionDeduction = 600000;
+        } else if (annualPension <= 4100000) {
+            pensionDeduction = annualPension * 0.25 + 275000;
+        } else if (annualPension <= 7700000) {
+            pensionDeduction = annualPension * 0.15 + 685000;
+        } else if (annualPension <= 10000000) {
+            pensionDeduction = annualPension * 0.05 + 1455000;
+        } else {
+            pensionDeduction = 1955000;
+        }
+    }
+    
+    // 最低控除額
+    pensionDeduction = Math.max(pensionDeduction, age >= 65 ? 1100000 : 600000);
+    
+    // 年金所得
+    const pensionIncome = Math.max(0, annualPension - pensionDeduction);
+    
+    // 課税所得（基礎控除48万円を適用）
+    const taxableIncome = Math.max(0, pensionIncome - 480000);
+    
+    // 累進課税
+    let tax = 0;
+    if (taxableIncome <= 1950000) {
+        tax = taxableIncome * 0.05;
+    } else if (taxableIncome <= 3300000) {
+        tax = taxableIncome * 0.10 - 97500;
+    } else if (taxableIncome <= 6950000) {
+        tax = taxableIncome * 0.20 - 427500;
+    } else if (taxableIncome <= 9000000) {
+        tax = taxableIncome * 0.23 - 636000;
+    } else if (taxableIncome <= 18000000) {
+        tax = taxableIncome * 0.33 - 1536000;
+    } else if (taxableIncome <= 40000000) {
+        tax = taxableIncome * 0.40 - 2796000;
+    } else {
+        tax = taxableIncome * 0.45 - 4796000;
+    }
+    
+    // 復興特別所得税（2.1%）
+    tax = tax * 1.021;
+    
+    // 住民税（約10%）
+    const residenceTax = taxableIncome * 0.10;
+    
+    // 後期高齢者医療保険や介護保険は別途考慮が必要だが、
+    // 簡易化のため住民税のみを追加
+    
+    return Math.floor(Math.max(0, tax + residenceTax));
+}
+
 // 住宅ローン年間返済額を計算（元利均等返済）
 function calculateMortgagePayment(
     loanAmount: number,
@@ -187,26 +259,44 @@ function calculateRemainingLoan(
     currentYear: number
 ): number {
     let remainingLoan = originalLoan;
+    const loanEndYear = loanStartYear + loanYears;
     
-    for (let y = loanStartYear; y < currentYear; y++) {
+    for (let y = loanStartYear; y < currentYear && y < loanEndYear; y++) {
         // その年の金利を取得
         const period = variableRatePeriods.find(p => y >= p.startYear && y <= p.endYear);
         const rate = period?.interestRate ?? defaultRate;
         
-        // その年の残り返済年数
-        const yearsRemaining = loanStartYear + loanYears - y;
-        if (yearsRemaining <= 0) break;
+        // その年の残り返済年数（少なくとも1年は必要）
+        const yearsRemaining = Math.max(1, loanEndYear - y);
         
-        // 年間返済額を計算
-        const yearlyPayment = calculateMortgagePayment(remainingLoan, rate, yearsRemaining);
-        
-        // 利息部分と元本返済部分を計算
+        // 月利を計算
         const monthlyRate = rate / 100 / 12;
-        const yearlyInterest = remainingLoan * monthlyRate * 12;
-        const principalPayment = yearlyPayment - yearlyInterest;
+        
+        // 利息がゼロの場合の処理
+        if (monthlyRate === 0) {
+            const principalPayment = remainingLoan / yearsRemaining;
+            remainingLoan = Math.max(0, remainingLoan - principalPayment);
+            continue;
+        }
+        
+        // 年間返済額を計算（元利均等返済）
+        const totalMonths = yearsRemaining * 12;
+        const monthlyPayment = remainingLoan * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) 
+                               / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+        const yearlyPayment = monthlyPayment * 12;
+        
+        // 1年間の利息と元本返済額を月ごとに計算
+        let yearlyPrincipal = 0;
+        let tempLoan = remainingLoan;
+        for (let m = 0; m < 12 && tempLoan > 0; m++) {
+            const monthlyInterest = tempLoan * monthlyRate;
+            const principalPart = Math.min(monthlyPayment - monthlyInterest, tempLoan);
+            yearlyPrincipal += principalPart;
+            tempLoan -= principalPart;
+        }
         
         // 残債を更新
-        remainingLoan = Math.max(0, remainingLoan - principalPayment);
+        remainingLoan = Math.max(0, remainingLoan - yearlyPrincipal);
     }
     
     return remainingLoan;
@@ -277,8 +367,15 @@ export function calculateLifePlan(
 
     const startYear = settings.calculationStartYear;
     const endYear = settings.calculationEndYear;
+    
+    // インフレ率（設定がない場合は0%）
+    const inflationRate = (settings.inflationRate || 0) / 100;
 
     for (let year = startYear; year <= endYear; year++) {
+        // インフレ係数を計算（基準年からの経過年数に応じて）
+        const yearsFromStart = year - startYear;
+        const inflationFactor = Math.pow(1 + inflationRate, yearsFromStart);
+        
         const yearResults: YearlyResult = {
             year,
             familyAges: {},
@@ -313,6 +410,8 @@ export function calculateLifePlan(
         // ================== 収入計算 ==================
         // 給与所得の税・社会保険料自動計算用
         let salaryTaxExpenses: { name: string; incomeTax: number; socialInsurance: number }[] = [];
+        // 年金所得の税計算用
+        let pensionTaxExpenses: { name: string; pensionTax: number }[] = [];
         
         incomes.forEach(income => {
             let amount = 0;
@@ -347,6 +446,16 @@ export function calculateLifePlan(
                 case 'pension': {
                     const pensionIncome = income as PensionIncome;
                     amount = calculatePension(pensionIncome, ownerAge);
+                    // 年金にかかる税金を計算
+                    if (amount > 0) {
+                        const pensionTax = calculatePensionTax(amount, ownerAge);
+                        if (pensionTax > 0) {
+                            pensionTaxExpenses.push({
+                                name: `${pensionIncome.name}の税金`,
+                                pensionTax
+                            });
+                        }
+                    }
                     break;
                 }
                 case 'retirement': {
@@ -395,6 +504,19 @@ export function calculateLifePlan(
             }
         });
 
+        // ================== 年金からの税金を自動計上 ==================
+        pensionTaxExpenses.forEach(taxExp => {
+            if (taxExp.pensionTax > 0) {
+                yearResults.expenses['tax'] = (yearResults.expenses['tax'] || 0) + taxExp.pensionTax;
+                yearResults.expenseDetails.push({ 
+                    name: taxExp.name, 
+                    category: 'tax', 
+                    amount: taxExp.pensionTax 
+                });
+                yearResults.totalExpense += taxExp.pensionTax;
+            }
+        });
+
         // ================== 支出計算 ==================
         expenses.forEach(expense => {
             let amount = 0;
@@ -405,7 +527,8 @@ export function calculateLifePlan(
                     if (housing.housingType === 'rent') {
                         if (housing.rentStartYear && year < housing.rentStartYear) break;
                         if (housing.rentEndYear && year > housing.rentEndYear) break;
-                        amount = (housing.monthlyRent || 0) * 12;
+                        // 賃貸料にはインフレ率を適用
+                        amount = (housing.monthlyRent || 0) * 12 * inflationFactor;
                     } else if (housing.housingType === 'owned-loan') {
                         if (housing.loanStartYear && housing.loanAmount && housing.loanYears) {
                             const loanEndYear = housing.loanStartYear + housing.loanYears;
@@ -480,8 +603,15 @@ export function calculateLifePlan(
                     if (tax.startYear && year < tax.startYear) break;
                     if (tax.endYear && year > tax.endYear) break;
                     if (tax.useAutoCalculation) {
-                        // 簡易計算: 収入の約20%を税・社会保険として計上
-                        amount = yearResults.totalIncome * 0.20;
+                        // 給与所得の税は別途自動計算されているため、
+                        // ここでは給与以外の収入（年金、事業所得など）に対する税のみ計算
+                        // 給与所得がある場合はスキップ（二重計上防止）
+                        const hasSalaryWithAutoTax = salaryTaxExpenses.length > 0;
+                        if (!hasSalaryWithAutoTax) {
+                            // 給与所得がない場合のみ、収入全体の20%を税として計上
+                            amount = yearResults.totalIncome * 0.20;
+                        }
+                        // 給与所得がある場合は、給与の税は既に計算済みなのでスキップ
                     } else if (tax.customAmount) {
                         amount = tax.customPeriodicity === 'monthly' ? tax.customAmount * 12 : tax.customAmount;
                     }
@@ -499,17 +629,18 @@ export function calculateLifePlan(
                     if (!car.hasCar) break;
                     if (car.startYear && year < car.startYear) break;
                     if (car.endYear && year > car.endYear) break;
-                    // 維持費
+                    // 維持費（ガソリン代にはインフレを適用）
                     amount += car.taxYearly || 0;
                     amount += car.insuranceYearly || 0;
                     amount += car.maintenanceYearly || 0;
-                    amount += (car.gasMonthly || 0) * 12;
+                    amount += (car.gasMonthly || 0) * 12 * inflationFactor; // ガソリン代はインフレ影響
                     amount += (car.parkingMonthly || 0) * 12;
-                    // 車購入
+                    // 車購入（購入価格にもインフレを適用）
                     if (car.purchaseYear && car.purchasePrice && car.replacementInterval) {
                         const yearsSincePurchase = year - car.purchaseYear;
                         if (yearsSincePurchase >= 0 && yearsSincePurchase % car.replacementInterval === 0) {
-                            amount += car.purchasePrice;
+                            // 買い替え時の価格はインフレを考慮
+                            amount += car.purchasePrice * inflationFactor;
                         }
                     }
                     break;
@@ -525,39 +656,55 @@ export function calculateLifePlan(
                     const living = expense as LivingExpense;
                     if (living.startYear && year < living.startYear) break;
                     if (living.endYear && year > living.endYear) break;
-                    amount = living.monthlyAmount * 12;
+                    // 生活費にはインフレ率を適用
+                    amount = living.monthlyAmount * 12 * inflationFactor;
                     break;
                 }
                 case 'utility': {
                     const utility = expense as UtilityExpense;
                     if (utility.startYear && year < utility.startYear) break;
                     if (utility.endYear && year > utility.endYear) break;
+                    // 光熱費にはインフレ率を適用
                     amount = ((utility.electricityMonthly || 0) + 
                               (utility.gasMonthly || 0) + 
-                              (utility.waterMonthly || 0)) * 12;
+                              (utility.waterMonthly || 0)) * 12 * inflationFactor;
                     break;
                 }
                 case 'communication': {
                     const comm = expense as CommunicationExpense;
                     if (comm.startYear && year < comm.startYear) break;
                     if (comm.endYear && year > comm.endYear) break;
+                    // 通信費にはインフレ率を適用
                     amount = ((comm.internetMonthly || 0) + 
                               (comm.mobileMonthly || 0) + 
-                              (comm.subscriptionsMonthly || 0)) * 12;
+                              (comm.subscriptionsMonthly || 0)) * 12 * inflationFactor;
                     break;
                 }
                 case 'medical': {
                     const medical = expense as MedicalExpense;
                     if (medical.startYear && year < medical.startYear) break;
                     if (medical.endYear && year > medical.endYear) break;
-                    amount = medical.monthlyAmount * 12;
+                    // 医療費にはインフレ率を適用
+                    amount = medical.monthlyAmount * 12 * inflationFactor;
                     break;
                 }
                 default: {
                     const generic = expense as GenericExpense;
                     if (generic.startYear && year < generic.startYear) break;
                     if (generic.endYear && year > generic.endYear) break;
-                    amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                    
+                    // 周期的な支出（intervalYearsが設定されている場合）
+                    if (generic.intervalYears && generic.intervalYears > 1) {
+                        const baseYear = generic.startYear || settings.calculationStartYear;
+                        const yearsSinceBase = year - baseYear;
+                        // 周期に該当する年のみ計上
+                        if (yearsSinceBase >= 0 && yearsSinceBase % generic.intervalYears === 0) {
+                            amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                        }
+                    } else {
+                        // 毎年の支出
+                        amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                    }
                     break;
                 }
             }
@@ -585,8 +732,14 @@ export function calculateLifePlan(
             }
 
             if (applyEvent) {
-                yearResults.expenses['event'] = (yearResults.expenses['event'] || 0) + event.cost;
-                yearResults.expenseDetails.push({ name: event.name, category: 'event', amount: event.cost });
+                // 車購入イベントの場合は'car'カテゴリに計上
+                if (event.eventType === 'car-purchase') {
+                    yearResults.expenses['car'] = (yearResults.expenses['car'] || 0) + event.cost;
+                    yearResults.expenseDetails.push({ name: event.name, category: 'car', amount: event.cost });
+                } else {
+                    yearResults.expenses['event'] = (yearResults.expenses['event'] || 0) + event.cost;
+                    yearResults.expenseDetails.push({ name: event.name, category: 'event', amount: event.cost });
+                }
                 yearResults.totalExpense += event.cost;
                 yearResults.events.push(event.name);
             }
@@ -681,9 +834,17 @@ export function calculateLifePlan(
         if (initialAssets.length > 0) {
             initialAssets.forEach(asset => {
                 let val = currentAssets[asset.id];
+                const originalValue = asset.currentValue; // 元本（単利計算用）
 
-                // 利息を加算
-                const interestGain = val * (asset.annualInterestRate / 100);
+                // 複利か単利かで計算方法を分岐
+                let interestGain = 0;
+                if (asset.isCompounding !== false) {
+                    // 複利: 現在の残高に対して利息を計算
+                    interestGain = val * (asset.annualInterestRate / 100);
+                } else {
+                    // 単利: 元本に対してのみ利息を計算
+                    interestGain = originalValue * (asset.annualInterestRate / 100);
+                }
                 val += interestGain;
                 totalInterestGain += interestGain;
 
@@ -695,6 +856,13 @@ export function calculateLifePlan(
                         const contribution = asset.monthlyContribution * 12;
                         val += contribution;
                         totalAccumulationContribution += contribution;
+                        
+                        // 積立分の年内利息（平均6ヶ月分として概算）
+                        if (asset.isCompounding !== false && asset.annualInterestRate > 0) {
+                            const contributionInterest = contribution * (asset.annualInterestRate / 100) * 0.5;
+                            val += contributionInterest;
+                            totalInterestGain += contributionInterest;
+                        }
                     }
                 }
 
