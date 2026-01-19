@@ -5,7 +5,7 @@ import { Sidebar } from './Sidebar';
 import { FamilyForm } from '../forms/FamilyForm';
 import { SalaryForm } from '../forms/SalaryForm';
 import { PensionForm } from '../forms/PensionForm';
-import { IncomeForm } from '../forms/IncomeForm';
+import { OtherIncomeForm } from '../forms/OtherIncomeForm';
 import { HousingForm } from '../forms/HousingForm';
 import { EducationForm } from '../forms/EducationForm';
 import { InsuranceForm } from '../forms/InsuranceForm';
@@ -42,7 +42,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             case 'pension':
                 return <PensionForm />;
             case 'otherIncome':
-                return <IncomeForm filterType="other" />;
+                return <OtherIncomeForm />;
             case 'housing':
                 return <HousingForm />;
             case 'education':

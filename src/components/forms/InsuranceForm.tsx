@@ -136,7 +136,7 @@ export const InsuranceForm: React.FC = () => {
                                         />
                                     </div>
                                 </div>
-                                <div className={styles.itemActions}>
+                                <div className={styles.editActions}>
                                     <button className={styles.saveBtn} onClick={handleSaveEdit}>
                                         <Check size={16} /> 保存
                                     </button>

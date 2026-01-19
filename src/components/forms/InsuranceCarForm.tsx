@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../lib/store';
 import { InsuranceExpense, TaxExpense, CarExpense } from '../../lib/types';
 import styles from './Forms.module.css';
-import { Trash2, Plus, Shield, Receipt, Car } from 'lucide-react';
+import { Trash2, Plus, Shield, Receipt, Car, Edit2, Check, X } from 'lucide-react';
 
 // 万円 <-> 円 変換ヘルパー
 const toMan = (yen: number) => yen / 10000;
@@ -11,12 +11,15 @@ const toYen = (man: number) => man * 10000;
 type TabType = 'insurance' | 'tax' | 'car';
 
 export const InsuranceCarForm: React.FC = () => {
-    const { expenses, addExpense, removeExpense, settings } = useAppStore();
+    const { expenses, addExpense, removeExpense, updateExpense, settings } = useAppStore();
     const [activeTab, setActiveTab] = useState<TabType>('insurance');
 
     const insuranceExpenses = expenses.filter(e => e.category === 'insurance') as InsuranceExpense[];
     const taxExpenses = expenses.filter(e => e.category === 'tax') as TaxExpense[];
     const carExpenses = expenses.filter(e => e.category === 'car') as CarExpense[];
+    
+    // デバッグ用
+    console.log('Car expenses from store:', carExpenses);
 
     // 保険 (万円単位)
     const [insuranceName, setInsuranceName] = useState('生命保険');
@@ -39,6 +42,31 @@ export const InsuranceCarForm: React.FC = () => {
     const [carMaintenanceYearlyMan, setCarMaintenanceYearlyMan] = useState(10);
     const [carGasMonthlyMan, setCarGasMonthlyMan] = useState(1.5);
     const [carParkingMonthlyMan, setCarParkingMonthlyMan] = useState(1.5);
+
+    // 編集用の状態
+    const [editingId, setEditingId] = useState<string | null>(null);
+    const [editData, setEditData] = useState<Record<string, any>>({});
+
+    // 編集開始
+    const startEdit = (item: any) => {
+        setEditingId(item.id);
+        setEditData({ ...item });
+    };
+
+    // 編集キャンセル
+    const cancelEdit = () => {
+        setEditingId(null);
+        setEditData({});
+    };
+
+    // 編集保存
+    const saveEdit = () => {
+        if (!editingId) return;
+        console.log('Saving car expense:', editingId, editData);
+        updateExpense(editingId, editData);
+        setEditingId(null);
+        setEditData({});
+    };
 
     const handleAddInsurance = () => {
         const insurance: InsuranceExpense = {
@@ -220,15 +248,87 @@ export const InsuranceCarForm: React.FC = () => {
                     <div className={styles.list}>
                         {carExpenses.map(item => (
                             <div key={item.id} className={styles.listItem}>
-                                <div className={styles.itemInfo}>
-                                    <span className={styles.itemName}>{item.name}</span>
-                                    <span className={styles.itemDetail}>
-                                        {item.hasCar ? `${item.replacementInterval}年ごと買い替え` : '車なし'}
-                                    </span>
-                                </div>
-                                <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
-                                    <Trash2 size={18} />
-                                </button>
+                                {editingId === item.id ? (
+                                    <div className={styles.editFormFull}>
+                                        <div className={styles.formGroup} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={editData.hasCar ?? true}
+                                                onChange={(e) => setEditData({...editData, hasCar: e.target.checked})}
+                                                style={{ width: 'auto', marginRight: '8px' }}
+                                            />
+                                            <label style={{ marginBottom: 0 }}>自動車を保有している</label>
+                                        </div>
+                                        {editData.hasCar && (
+                                            <>
+                                                <div className={styles.sectionTitle}>車両購入</div>
+                                                <div className={styles.row}>
+                                                    <div className={styles.formGroup}>
+                                                        <label>購入価格 (万円)</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.purchasePrice || 0)} onChange={(e) => setEditData({...editData, purchasePrice: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                    <div className={styles.formGroup}>
+                                                        <label>購入年</label>
+                                                        <input type="number" value={editData.purchaseYear || settings.calculationStartYear} onChange={(e) => setEditData({...editData, purchaseYear: Number(e.target.value), startYear: Number(e.target.value)})} />
+                                                    </div>
+                                                    <div className={styles.formGroup}>
+                                                        <label>買い替え間隔（年）</label>
+                                                        <input type="number" value={editData.replacementInterval || 10} onChange={(e) => setEditData({...editData, replacementInterval: Number(e.target.value)})} />
+                                                    </div>
+                                                </div>
+                                                <div className={styles.sectionTitle}>維持費</div>
+                                                <div className={styles.row}>
+                                                    <div className={styles.formGroup}>
+                                                        <label>自動車税（年額・万円）</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.taxYearly || 0)} onChange={(e) => setEditData({...editData, taxYearly: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                    <div className={styles.formGroup}>
+                                                        <label>自動車保険（年額・万円）</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.insuranceYearly || 0)} onChange={(e) => setEditData({...editData, insuranceYearly: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                </div>
+                                                <div className={styles.row}>
+                                                    <div className={styles.formGroup}>
+                                                        <label>車検・整備費（年平均・万円）</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.maintenanceYearly || 0)} onChange={(e) => setEditData({...editData, maintenanceYearly: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                    <div className={styles.formGroup}>
+                                                        <label>ガソリン代（月額・万円）</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.gasMonthly || 0)} onChange={(e) => setEditData({...editData, gasMonthly: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                    <div className={styles.formGroup}>
+                                                        <label>駐車場代（月額・万円）</label>
+                                                        <input type="number" step="0.1" value={toMan(editData.parkingMonthly || 0)} onChange={(e) => setEditData({...editData, parkingMonthly: toYen(Number(e.target.value))})} />
+                                                    </div>
+                                                </div>
+                                                <div className={styles.previewBox}>
+                                                    <span>年間維持費: <strong>{(toMan(editData.taxYearly || 0) + toMan(editData.insuranceYearly || 0) + toMan(editData.maintenanceYearly || 0) + (toMan(editData.gasMonthly || 0) + toMan(editData.parkingMonthly || 0)) * 12).toFixed(1)}万円</strong></span>
+                                                </div>
+                                            </>
+                                        )}
+                                        <div className={styles.editActions}>
+                                            <button className={styles.saveBtn} onClick={saveEdit}><Check size={16} /> 保存</button>
+                                            <button className={styles.cancelBtn} onClick={cancelEdit}><X size={16} /> キャンセル</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={styles.itemInfo}>
+                                            <span className={styles.itemName}>{item.name}</span>
+                                            <span className={styles.itemDetail}>
+                                                {item.hasCar ? `${item.replacementInterval}年ごと買い替え | 駐車場${toMan(item.parkingMonthly || 0).toFixed(1)}万円/月` : '車なし'}
+                                            </span>
+                                        </div>
+                                        <div className={styles.itemActions}>
+                                            <button className={styles.editBtn} onClick={() => startEdit(item)} title="編集">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            <button className={styles.deleteBtn} onClick={() => removeExpense(item.id)}>
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         ))}
                         {carExpenses.length === 0 && <div className={styles.emptyState}>自動車関連費はまだ登録されていません。</div>}

@@ -553,7 +553,7 @@ export const LivingExpenseForm: React.FC = () => {
                                                 <div className={styles.formGroup}>
                                                     <label>対象者</label>
                                                     <select value={editData.ownerId || ''} onChange={(e) => setEditData({...editData, ownerId: e.target.value, name: `${family.find(f => f.id === e.target.value)?.name || ''}のお小遣い`})}>
-                                                        {family.filter(f => f.role !== 'child').map(f => (
+                                                        {family.map(f => (
                                                             <option key={f.id} value={f.id}>{f.name}</option>
                                                         ))}
                                                     </select>
@@ -608,7 +608,7 @@ export const LivingExpenseForm: React.FC = () => {
                             <div className={styles.formGroup}>
                                 <label>対象者</label>
                                 <select value={allowanceOwnerId} onChange={(e) => setAllowanceOwnerId(e.target.value)}>
-                                    {family.filter(f => f.role !== 'child').map(f => (
+                                    {family.map(f => (
                                         <option key={f.id} value={f.id}>{f.name}</option>
                                     ))}
                                 </select>

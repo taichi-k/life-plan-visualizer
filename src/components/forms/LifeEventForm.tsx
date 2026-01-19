@@ -21,6 +21,9 @@ const EVENT_TYPE_OPTIONS: { value: LifeEventType; label: string }[] = [
 
 export const LifeEventForm: React.FC = () => {
     const { events, addEvent, updateEvent, removeEvent } = useAppStore();
+    
+    // デバッグ用
+    console.log('Current events:', events);
 
     // 新規追加用 (万円単位)
     const [name, setName] = useState('');
@@ -91,12 +94,12 @@ export const LifeEventForm: React.FC = () => {
         setEditYear(item.year);
         setEditCostMan(toMan(item.cost));
         setEditIsRecurring(item.isRecurring);
-        setEditInterval(item.recurrenceInterval || 10);
-        setEditCarTaxYearlyMan(toMan(item.carMaintenance?.taxYearly || 40000));
-        setEditCarInsuranceYearlyMan(toMan(item.carMaintenance?.insuranceYearly || 80000));
-        setEditCarMaintenanceYearlyMan(toMan(item.carMaintenance?.maintenanceYearly || 100000));
-        setEditCarGasMonthlyMan(toMan(item.carMaintenance?.gasMonthly || 15000));
-        setEditCarParkingMonthlyMan(toMan(item.carMaintenance?.parkingMonthly || 15000));
+        setEditInterval(item.recurrenceInterval ?? 10);
+        setEditCarTaxYearlyMan(toMan(item.carMaintenance?.taxYearly ?? 40000));
+        setEditCarInsuranceYearlyMan(toMan(item.carMaintenance?.insuranceYearly ?? 80000));
+        setEditCarMaintenanceYearlyMan(toMan(item.carMaintenance?.maintenanceYearly ?? 100000));
+        setEditCarGasMonthlyMan(toMan(item.carMaintenance?.gasMonthly ?? 15000));
+        setEditCarParkingMonthlyMan(toMan(item.carMaintenance?.parkingMonthly ?? 15000));
     };
 
     const handleSaveEdit = () => {
@@ -117,6 +120,7 @@ export const LifeEventForm: React.FC = () => {
                 parkingMonthly: toYen(editCarParkingMonthlyMan),
             } : undefined,
         };
+        console.log('Saving event:', editingId, updated);
         updateEvent(editingId, updated);
         setEditingId(null);
     };
@@ -210,7 +214,7 @@ export const LifeEventForm: React.FC = () => {
                                         </div>
                                     </>
                                 )}
-                                <div className={styles.itemActions}>
+                                <div className={styles.editActions}>
                                     <button className={styles.saveBtn} onClick={handleSaveEdit}><Check size={16} /> 保存</button>
                                     <button className={styles.cancelBtn} onClick={handleCancelEdit}><X size={16} /> キャンセル</button>
                                 </div>

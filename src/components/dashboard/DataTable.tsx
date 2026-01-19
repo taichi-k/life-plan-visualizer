@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { YearlyResult } from '../../lib/types';
 import { useAppStore } from '../../lib/store';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download } from 'lucide-react';
+import { generateDetailedCSV, downloadCSV } from '../../lib/csvExport';
 
 interface DataTableProps {
     data: YearlyResult[];
@@ -42,6 +43,14 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // CSVエクスポート
+    const handleExportCSV = () => {
+        const csv = generateDetailedCSV(data, family);
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+        downloadCSV(csv, `lifeplan_detail_${dateStr}.csv`);
+    };
+
     // 夫と妻の名前を取得
     const husband = family.find(m => m.role === 'husband');
     const wife = family.find(m => m.role === 'wife');
@@ -57,8 +66,8 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
         getValue: (d: YearlyResult) => {
             const age = d.year - child.birthYear;
             const stage = d.childrenEducationStages?.[child.id];
-            // 卒業後は教育段階を表示しない
-            const stageLabel = (stage && stage !== 'graduated') ? EDUCATION_STAGE_LABELS[stage] || stage : '';
+            // 卒業後・未就学は教育段階を表示しない
+            const stageLabel = (stage && stage !== 'graduated' && stage !== 'preschool') ? EDUCATION_STAGE_LABELS[stage] || stage : '';
             if (age < 0) return '未誕生';
             return `${age}歳${stageLabel ? ` (${stageLabel})` : ''}`;
         },
@@ -224,6 +233,35 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
 
     return (
         <div style={{ width: '100%', overflowX: 'auto' }}>
+            <div style={{ 
+                display: 'flex', 
+                justifyContent: 'flex-end', 
+                marginBottom: '8px',
+                paddingRight: '4px'
+            }}>
+                <button
+                    onClick={handleExportCSV}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '8px 16px',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        transition: 'opacity 0.2s'
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
+                    onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                >
+                    <Download size={16} />
+                    CSVエクスポート
+                </button>
+            </div>
             <table style={{ borderCollapse: 'collapse', fontSize: '13px', minWidth: 'max-content', width: '100%' }}>
                 <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
