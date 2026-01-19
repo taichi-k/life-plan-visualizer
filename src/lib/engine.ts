@@ -183,8 +183,13 @@ function calculatePensionTax(annualPension: number, age: number): number {
         }
     }
     
-    // 最低控除額
-    pensionDeduction = Math.max(pensionDeduction, age >= 65 ? 1100000 : 600000);
+    // 最低控除額（65歳以上は110万円、65歳未満で130万円以下は60万円）
+    // 注：65歳未満で収入が130万円超の場合は計算式の結果がそのまま適用される
+    if (age >= 65) {
+        pensionDeduction = Math.max(pensionDeduction, 1100000);
+    } else if (annualPension <= 1300000) {
+        pensionDeduction = Math.max(pensionDeduction, 600000);
+    }
     
     // 年金所得
     const pensionIncome = Math.max(0, annualPension - pensionDeduction);
@@ -221,12 +226,26 @@ function calculatePensionTax(annualPension: number, age: number): number {
     let elderlyInsurance = 0;
     if (age >= 75) {
         // 後期高齢者医療保険（年金から特別徴収）
-        // 簡易計算：所得割（約8%）+ 均等割（約5万円）
-        elderlyInsurance = Math.max(0, pensionIncome * 0.08) + 50000;
+        // 令和6年度全国平均：所得割約9.87%、均等割約4.7万円
+        // 年金所得のみの場合、基礎控除後の所得に対して計算
+        const taxableIncomeForInsurance = Math.max(0, pensionIncome - 430000); // 基礎控除43万円
+        elderlyInsurance = Math.max(0, taxableIncomeForInsurance * 0.0987) + 47000;
+        // 年間上限額（令和6年度：80万円）
+        elderlyInsurance = Math.min(elderlyInsurance, 800000);
     } else if (age >= 65) {
         // 介護保険料（第1号被保険者）
-        // 簡易計算：所得に応じた段階制だが、中間段階で約8万円/年と仮定
-        elderlyInsurance = 80000;
+        // 所得段階制（標準的な市区町村で年間約7.5万円〜9万円程度）
+        // 年金所得に応じた概算（基準額約7万円として所得による調整）
+        const baseInsurance = 70000;
+        if (pensionIncome <= 800000) {
+            elderlyInsurance = baseInsurance * 0.5; // 低所得者軽減
+        } else if (pensionIncome <= 1200000) {
+            elderlyInsurance = baseInsurance * 0.75;
+        } else if (pensionIncome <= 2100000) {
+            elderlyInsurance = baseInsurance;
+        } else {
+            elderlyInsurance = baseInsurance * 1.25;
+        }
     }
     
     return Math.floor(Math.max(0, tax + residenceTax + elderlyInsurance));
