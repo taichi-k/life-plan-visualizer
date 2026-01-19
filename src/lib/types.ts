@@ -64,6 +64,8 @@ export interface RetirementIncome {
   ownerId: string;
   amount: number;
   receiveYear: number;
+  // 退職所得税計算用（勤続年数）
+  yearsOfService?: number; // 勤続年数（指定がない場合は推定）
 }
 
 export interface InvestmentIncome {
@@ -398,36 +400,43 @@ export interface YearlyResult {
 }
 
 // ============================================================
-// 教育費の平均値（FP標準データ）
+// 教育費の平均値（文部科学省「子供の学習費調査」令和5年度版）
 // ============================================================
 export const EDUCATION_COSTS = {
   kindergarten: {
-    public: 165000, // 年間（3年間）
-    private: 308000,
+    public: 175000, // 年間（3年間）- 令和5年度
+    private: 330000,
   },
   elementary: {
-    public: 352000, // 年間（6年間）
-    private: 1666000,
+    public: 353000, // 年間（6年間）- 学校教育費+学校給食費+学校外活動費
+    private: 1880000,
   },
   juniorHigh: {
-    public: 538000, // 年間（3年間）
-    private: 1436000,
+    public: 539000, // 年間（3年間）
+    private: 1440000,
   },
   highSchool: {
-    public: 512000, // 年間（3年間）
-    private: 1054000,
+    public: 513000, // 年間（3年間）
+    private: 1060000,
   },
   university: {
-    national: 535800 + 282000, // 授業料 + 入学金（4年平均）
-    public: 537857 + 391305,
-    'private-arts': 815069 + 225651,
-    'private-science': 1136074 + 251029,
+    // 令和5年度 国立大学等の授業料その他の費用
+    national: 535800 + 282000, // 授業料 + 入学金（年平均化: 入学金÷4）= 606,300
+    public: 536382 + 391305 / 4, // 公立大学平均
+    'private-arts': 815069 + 225651 / 4, // 私立文系
+    'private-science': 1136074 + 251029 / 4, // 私立理系
   },
 } as const;
 
-// 年金計算用の定数
+// 年金計算用の定数（令和6年度）
 export const PENSION_CONSTANTS = {
-  nationalPensionFullAmount: 795000, // 満額（年額）令和5年度
+  nationalPensionFullAmount: 816000, // 満額（年額）令和6年度: 68,000円×12ヶ月
   nationalPensionMaxYears: 40,
-  employeePensionMultiplier: 0.005481, // 報酬比例部分の係数
+  employeePensionMultiplier: 0.005481, // 報酬比例部分の係数（2003年4月以降）
+  // 社会保険料関連
+  pensionStandardRemunerationMax: 650000, // 厚生年金標準報酬月額上限
+  healthInsuranceRate: 0.10, // 健康保険料率（協会けんぽ全国平均）
+  pensionInsuranceRate: 0.183, // 厚生年金保険料率
+  employmentInsuranceRate: 0.006, // 雇用保険料率（一般事業）
+  nursingCareInsuranceRate: 0.016, // 介護保険料率（40-64歳）
 } as const;

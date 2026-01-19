@@ -28,6 +28,64 @@ import {
     VariableRatePeriod
 } from './types';
 
+// 退職所得税を計算（退職所得控除を適用）
+function calculateRetirementTax(retirementAmount: number, yearsOfService: number): number {
+    // 退職所得控除を計算
+    let retirementDeduction = 0;
+    if (yearsOfService <= 20) {
+        retirementDeduction = 400000 * yearsOfService;
+    } else {
+        retirementDeduction = 8000000 + 700000 * (yearsOfService - 20);
+    }
+    // 最低80万円
+    retirementDeduction = Math.max(retirementDeduction, 800000);
+    
+    // 退職所得（1/2課税）
+    // ただし、勤続5年以下の役員等は1/2課税なし（簡易化のため一般的なケースで計算）
+    const retirementIncome = Math.max(0, (retirementAmount - retirementDeduction) / 2);
+    
+    // 所得税（累進課税）
+    let incomeTax = 0;
+    if (retirementIncome <= 1950000) {
+        incomeTax = retirementIncome * 0.05;
+    } else if (retirementIncome <= 3300000) {
+        incomeTax = retirementIncome * 0.10 - 97500;
+    } else if (retirementIncome <= 6950000) {
+        incomeTax = retirementIncome * 0.20 - 427500;
+    } else if (retirementIncome <= 9000000) {
+        incomeTax = retirementIncome * 0.23 - 636000;
+    } else if (retirementIncome <= 18000000) {
+        incomeTax = retirementIncome * 0.33 - 1536000;
+    } else if (retirementIncome <= 40000000) {
+        incomeTax = retirementIncome * 0.40 - 2796000;
+    } else {
+        incomeTax = retirementIncome * 0.45 - 4796000;
+    }
+    
+    // 復興特別所得税（2.1%）
+    incomeTax = incomeTax * 1.021;
+    
+    // 住民税（10%、退職所得に対して）
+    const residenceTax = retirementIncome * 0.10;
+    
+    return Math.floor(Math.max(0, incomeTax + residenceTax));
+}
+
+// 勤続年数を推定（給与情報から）
+function estimateYearsOfService(incomes: Income[], ownerId: string): number {
+    // 同じオーナーの給与所得を探す
+    const salaryIncome = incomes.find(
+        (i): i is SalaryIncome => i.type === 'salary' && (i as SalaryIncome).ownerId === ownerId
+    );
+    
+    if (salaryIncome && salaryIncome.startAge && salaryIncome.endAge) {
+        return salaryIncome.endAge - salaryIncome.startAge;
+    }
+    
+    // デフォルト: 大卒22歳〜60歳定年で38年と仮定
+    return 38;
+}
+
 // 教育段階を取得
 function getEducationStage(age: number): string {
     if (age < 3) return 'preschool';
@@ -158,10 +216,20 @@ function calculatePensionTax(annualPension: number, age: number): number {
     // 住民税（約10%）
     const residenceTax = taxableIncome * 0.10;
     
-    // 後期高齢者医療保険や介護保険は別途考慮が必要だが、
-    // 簡易化のため住民税のみを追加
+    // 後期高齢者医療保険料（75歳以上の場合）
+    // 65歳以上は介護保険料も別途発生
+    let elderlyInsurance = 0;
+    if (age >= 75) {
+        // 後期高齢者医療保険（年金から特別徴収）
+        // 簡易計算：所得割（約8%）+ 均等割（約5万円）
+        elderlyInsurance = Math.max(0, pensionIncome * 0.08) + 50000;
+    } else if (age >= 65) {
+        // 介護保険料（第1号被保険者）
+        // 簡易計算：所得に応じた段階制だが、中間段階で約8万円/年と仮定
+        elderlyInsurance = 80000;
+    }
     
-    return Math.floor(Math.max(0, tax + residenceTax));
+    return Math.floor(Math.max(0, tax + residenceTax + elderlyInsurance));
 }
 
 // 住宅ローン年間返済額を計算（元利均等返済）
@@ -229,24 +297,35 @@ function calculateIncomeTax(annualIncome: number): number {
     return Math.floor(tax + residenceTax);
 }
 
-// 社会保険料を計算
-function calculateSocialInsurance(annualIncome: number): number {
+// 社会保険料を計算（年齢考慮版）
+function calculateSocialInsurance(annualIncome: number, age?: number): number {
     // 標準報酬月額ベースで概算
     const monthlyIncome = annualIncome / 12;
     
     // 健康保険料（約10%、労使折半で本人負担5%）
-    const healthInsurance = monthlyIncome * 0.05;
+    // 健康保険の標準報酬月額上限は139万円
+    const healthBase = Math.min(monthlyIncome, 1390000);
+    const healthInsurance = healthBase * (PENSION_CONSTANTS.healthInsuranceRate / 2);
     
-    // 厚生年金保険料（約18.3%、労使折半で本人負担9.15%）
-    // 標準報酬月額上限65万円
-    const pensionBase = Math.min(monthlyIncome, 650000);
-    const pensionInsurance = pensionBase * 0.0915;
+    // 介護保険料（40歳以上65歳未満の場合のみ）
+    let nursingCareInsurance = 0;
+    if (age !== undefined && age >= 40 && age < 65) {
+        nursingCareInsurance = healthBase * (PENSION_CONSTANTS.nursingCareInsuranceRate / 2);
+    }
     
-    // 雇用保険料（約0.6%）
-    const employmentInsurance = monthlyIncome * 0.006;
+    // 厚生年金保険料（18.3%、労使折半で本人負担9.15%）
+    // 標準報酬月額上限65万円、70歳未満のみ
+    let pensionInsurance = 0;
+    if (age === undefined || age < 70) {
+        const pensionBase = Math.min(monthlyIncome, PENSION_CONSTANTS.pensionStandardRemunerationMax);
+        pensionInsurance = pensionBase * (PENSION_CONSTANTS.pensionInsuranceRate / 2);
+    }
+    
+    // 雇用保険料（約0.6%）- 65歳以上も対象
+    const employmentInsurance = monthlyIncome * PENSION_CONSTANTS.employmentInsuranceRate;
     
     // 年間の社会保険料
-    return Math.floor((healthInsurance + pensionInsurance + employmentInsurance) * 12);
+    return Math.floor((healthInsurance + nursingCareInsurance + pensionInsurance + employmentInsurance) * 12);
 }
 
 // 変動金利ローンの残債を計算
@@ -412,6 +491,8 @@ export function calculateLifePlan(
         let salaryTaxExpenses: { name: string; incomeTax: number; socialInsurance: number }[] = [];
         // 年金所得の税計算用
         let pensionTaxExpenses: { name: string; pensionTax: number }[] = [];
+        // 退職所得の税計算用
+        let retirementTaxExpenses: { name: string; retirementTax: number }[] = [];
         
         incomes.forEach(income => {
             let amount = 0;
@@ -431,10 +512,10 @@ export function calculateLifePlan(
                         amount = exact?.annualAmount || 0;
                     }
                     
-                    // 税・社会保険料の自動計算
+                    // 税・社会保険料の自動計算（年齢考慮）
                     if (amount > 0 && salaryIncome.autoCalculateTax !== false) {
                         const incomeTax = calculateIncomeTax(amount);
-                        const socialInsurance = calculateSocialInsurance(amount);
+                        const socialInsurance = calculateSocialInsurance(amount, ownerAge);
                         salaryTaxExpenses.push({
                             name: `${salaryIncome.name}の税・社保`,
                             incomeTax,
@@ -462,6 +543,17 @@ export function calculateLifePlan(
                     const retirementIncome = income as RetirementIncome;
                     if (year === retirementIncome.receiveYear) {
                         amount = retirementIncome.amount;
+                        // 退職所得税を計算
+                        // 勤続年数が未指定の場合、給与所得の開始〜終了年齢から推定
+                        const yearsOfService = retirementIncome.yearsOfService || 
+                            estimateYearsOfService(incomes, retirementIncome.ownerId);
+                        const retirementTax = calculateRetirementTax(amount, yearsOfService);
+                        if (retirementTax > 0) {
+                            retirementTaxExpenses.push({
+                                name: `${retirementIncome.name}の退職所得税`,
+                                retirementTax
+                            });
+                        }
                     }
                     break;
                 }
@@ -514,6 +606,19 @@ export function calculateLifePlan(
                     amount: taxExp.pensionTax 
                 });
                 yearResults.totalExpense += taxExp.pensionTax;
+            }
+        });
+
+        // ================== 退職金からの退職所得税を自動計上 ==================
+        retirementTaxExpenses.forEach(taxExp => {
+            if (taxExp.retirementTax > 0) {
+                yearResults.expenses['tax'] = (yearResults.expenses['tax'] || 0) + taxExp.retirementTax;
+                yearResults.expenseDetails.push({ 
+                    name: taxExp.name, 
+                    category: 'tax', 
+                    amount: taxExp.retirementTax 
+                });
+                yearResults.totalExpense += taxExp.retirementTax;
             }
         });
 
