@@ -1,6 +1,13 @@
 import { YearlyResult, FamilyMember } from './types';
 
 /**
+ * 数値を整数に切り捨てて文字列に変換する
+ */
+function toIntString(value: number): string {
+    return Math.floor(value).toString();
+}
+
+/**
  * シミュレーション結果を詳細なCSVに変換する
  */
 export function generateDetailedCSV(
@@ -47,15 +54,15 @@ export function generateDetailedCSV(
     rows.push(['【収入】', '', ...Array(years.length).fill('')]);
     
     // 収入合計
-    rows.push(['総収入', '合計', ...data.map(d => d.totalIncome.toString())]);
+    rows.push(['総収入', '合計', ...data.map(d => toIntString(d.totalIncome))]);
     
     // 収入カテゴリ別
-    rows.push(['', '給与収入', ...data.map(d => (d.incomeBreakdown?.salary || 0).toString())]);
-    rows.push(['', '年金収入', ...data.map(d => (d.incomeBreakdown?.pension || 0).toString())]);
-    rows.push(['', '退職金', ...data.map(d => (d.incomes['retirement'] || 0).toString())]);
-    rows.push(['', '投資収益', ...data.map(d => (d.incomes['investment'] || 0).toString())]);
-    rows.push(['', '事業収入', ...data.map(d => (d.incomes['business'] || 0).toString())]);
-    rows.push(['', 'その他収入', ...data.map(d => (d.incomes['other'] || 0).toString())]);
+    rows.push(['', '給与収入', ...data.map(d => toIntString(d.incomeBreakdown?.salary || 0))]);
+    rows.push(['', '年金収入', ...data.map(d => toIntString(d.incomeBreakdown?.pension || 0))]);
+    rows.push(['', '退職金', ...data.map(d => toIntString(d.incomes['retirement'] || 0))]);
+    rows.push(['', '投資収益', ...data.map(d => toIntString(d.incomes['investment'] || 0))]);
+    rows.push(['', '事業収入', ...data.map(d => toIntString(d.incomes['business'] || 0))]);
+    rows.push(['', 'その他収入', ...data.map(d => toIntString(d.incomes['other'] || 0))]);
 
     // 収入詳細（各収入項目）
     rows.push(['（収入項目詳細）', '', ...Array(years.length).fill('')]);
@@ -63,7 +70,7 @@ export function generateDetailedCSV(
     incomeNames.forEach(name => {
         const values = data.map(d => {
             const detail = d.incomeDetails.find(item => item.name === name);
-            return detail ? detail.amount.toString() : '0';
+            return detail ? toIntString(detail.amount) : '0';
         });
         rows.push(['', name, ...values]);
     });
@@ -72,21 +79,21 @@ export function generateDetailedCSV(
     rows.push(['【支出】', '', ...Array(years.length).fill('')]);
     
     // 支出合計
-    rows.push(['総支出', '合計', ...data.map(d => d.totalExpense.toString())]);
+    rows.push(['総支出', '合計', ...data.map(d => toIntString(d.totalExpense))]);
     
     // 支出カテゴリ別
-    rows.push(['', '住居費', ...data.map(d => (d.expenseBreakdown?.housing || 0).toString())]);
-    rows.push(['', '税金・社会保険', ...data.map(d => (d.expenseBreakdown?.tax || 0).toString())]);
-    rows.push(['', '教育費', ...data.map(d => (d.expenseBreakdown?.education || 0).toString())]);
-    rows.push(['', '生活費', ...data.map(d => (d.expenseBreakdown?.living || 0).toString())]);
-    rows.push(['', '光熱水費', ...data.map(d => (d.expenseBreakdown?.utility || 0).toString())]);
-    rows.push(['', '通信費', ...data.map(d => (d.expenseBreakdown?.communication || 0).toString())]);
-    rows.push(['', '医療費', ...data.map(d => (d.expenseBreakdown?.medical || 0).toString())]);
-    rows.push(['', '保険料', ...data.map(d => (d.expenseBreakdown?.insurance || 0).toString())]);
-    rows.push(['', '自動車関連', ...data.map(d => (d.expenseBreakdown?.car || 0).toString())]);
-    rows.push(['', 'お小遣い', ...data.map(d => (d.expenseBreakdown?.allowance || 0).toString())]);
-    rows.push(['', 'イベント支出', ...data.map(d => (d.expenseBreakdown?.event || 0).toString())]);
-    rows.push(['', 'その他支出', ...data.map(d => (d.expenseBreakdown?.other || 0).toString())]);
+    rows.push(['', '住居費', ...data.map(d => toIntString(d.expenseBreakdown?.housing || 0))]);
+    rows.push(['', '税金・社会保険', ...data.map(d => toIntString(d.expenseBreakdown?.tax || 0))]);
+    rows.push(['', '教育費', ...data.map(d => toIntString(d.expenseBreakdown?.education || 0))]);
+    rows.push(['', '生活費', ...data.map(d => toIntString(d.expenseBreakdown?.living || 0))]);
+    rows.push(['', '光熱水費', ...data.map(d => toIntString(d.expenseBreakdown?.utility || 0))]);
+    rows.push(['', '通信費', ...data.map(d => toIntString(d.expenseBreakdown?.communication || 0))]);
+    rows.push(['', '医療費', ...data.map(d => toIntString(d.expenseBreakdown?.medical || 0))]);
+    rows.push(['', '保険料', ...data.map(d => toIntString(d.expenseBreakdown?.insurance || 0))]);
+    rows.push(['', '自動車関連', ...data.map(d => toIntString(d.expenseBreakdown?.car || 0))]);
+    rows.push(['', 'お小遣い', ...data.map(d => toIntString(d.expenseBreakdown?.allowance || 0))]);
+    rows.push(['', 'イベント支出', ...data.map(d => toIntString(d.expenseBreakdown?.event || 0))]);
+    rows.push(['', 'その他支出', ...data.map(d => toIntString(d.expenseBreakdown?.other || 0))]);
 
     // 支出詳細（各支出項目）
     rows.push(['（支出項目詳細）', '', ...Array(years.length).fill('')]);
@@ -94,7 +101,7 @@ export function generateDetailedCSV(
     expenseNames.forEach(name => {
         const values = data.map(d => {
             const detail = d.expenseDetails.find(item => item.name === name);
-            return detail ? detail.amount.toString() : '0';
+            return detail ? toIntString(detail.amount) : '0';
         });
         rows.push(['', name, ...values]);
     });
@@ -103,23 +110,23 @@ export function generateDetailedCSV(
     rows.push(['【収支・資産】', '', ...Array(years.length).fill('')]);
     
     // 年間収支
-    rows.push(['年間収支', '', ...data.map(d => d.cashFlow.toString())]);
+    rows.push(['年間収支', '', ...data.map(d => toIntString(d.cashFlow))]);
     
     // 資産変動の内訳
-    rows.push(['資産増減', '合計', ...data.map(d => (d.assetChangeBreakdown?.totalChange || 0).toString())]);
-    rows.push(['', '収支影響', ...data.map(d => (d.assetChangeBreakdown?.cashFlowImpact || 0).toString())]);
-    rows.push(['', '運用益', ...data.map(d => (d.assetChangeBreakdown?.interestGain || 0).toString())]);
-    rows.push(['', '積立投資', ...data.map(d => (d.assetChangeBreakdown?.accumulationContribution || 0).toString())]);
+    rows.push(['資産増減', '合計', ...data.map(d => toIntString(d.assetChangeBreakdown?.totalChange || 0))]);
+    rows.push(['', '収支影響', ...data.map(d => toIntString(d.assetChangeBreakdown?.cashFlowImpact || 0))]);
+    rows.push(['', '運用益', ...data.map(d => toIntString(d.assetChangeBreakdown?.interestGain || 0))]);
+    rows.push(['', '積立投資', ...data.map(d => toIntString(d.assetChangeBreakdown?.accumulationContribution || 0))]);
     
     // 資産残高合計
-    rows.push(['資産残高', '合計', ...data.map(d => d.totalAssets.toString())]);
+    rows.push(['資産残高', '合計', ...data.map(d => toIntString(d.totalAssets))]);
 
     // 資産種類別（もし複数の資産がある場合）
     const assetIds = Object.keys(data[0]?.assets || {});
     if (assetIds.length > 1) {
         rows.push(['（資産別内訳）', '', ...Array(years.length).fill('')]);
         assetIds.forEach(assetId => {
-            const values = data.map(d => (d.assets[assetId] || 0).toString());
+            const values = data.map(d => toIntString(d.assets[assetId] || 0));
             rows.push(['', assetId, ...values]);
         });
     }
