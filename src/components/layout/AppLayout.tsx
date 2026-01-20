@@ -86,7 +86,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     };
 
     return (
-        <div className={styles.layout}>
+        <div className={styles.layout} suppressHydrationWarning>
             <Sidebar onOpenModal={handleOpenModal} />
             <main className={styles.main}>
                 {children}

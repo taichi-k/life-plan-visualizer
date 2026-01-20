@@ -648,11 +648,19 @@ export function calculateLifePlan(
             switch (expense.category) {
                 case 'housing': {
                     const housing = expense as HousingExpense;
+                    // 持ち家（ローンまたは完済済み）の開始年を判定
+                    // ローンの場合はloanStartYear、完済済みの場合は設定がないので常に適用
+                    const ownedStartYear = housing.housingType === 'owned-loan' 
+                        ? housing.loanStartYear 
+                        : (housing.housingType === 'owned-paid' ? undefined : undefined);
+                    const isOwnedPeriod = housing.housingType !== 'rent' && 
+                        (ownedStartYear === undefined || year >= ownedStartYear);
+                    
                     if (housing.housingType === 'rent') {
                         if (housing.rentStartYear && year < housing.rentStartYear) break;
                         if (housing.rentEndYear && year > housing.rentEndYear) break;
-                        // 賃貸料にはインフレ率を適用
-                        amount = (housing.monthlyRent || 0) * 12 * inflationFactor;
+                        // 賃貸料は固定（契約更新時の値上げは個別に設定で対応）
+                        amount = (housing.monthlyRent || 0) * 12;
                     } else if (housing.housingType === 'owned-loan') {
                         if (housing.loanStartYear && housing.loanAmount && housing.loanYears) {
                             const loanEndYear = housing.loanStartYear + housing.loanYears;
@@ -691,25 +699,28 @@ export function calculateLifePlan(
                             }
                         }
                     }
-                    // 固定資産税
-                    if (housing.propertyTaxYearly) {
-                        amount += housing.propertyTaxYearly;
-                    }
-                    // マンション管理費・修繕積立金
-                    if (housing.isApartment) {
-                        amount += (housing.managementFeeMonthly || 0) * 12;
-                        amount += (housing.repairReserveFundMonthly || 0) * 12;
-                    }
-                    // 大規模修繕
-                    if (housing.majorRepairCost && housing.majorRepairInterval && housing.majorRepairStartYear) {
-                        const yearsSinceStart = year - housing.majorRepairStartYear;
-                        if (yearsSinceStart >= 0 && yearsSinceStart % housing.majorRepairInterval === 0) {
-                            amount += housing.majorRepairCost;
+                    // 持ち家の場合のみ（持ち家期間中のみ）固定資産税・管理費等を加算
+                    if (isOwnedPeriod) {
+                        // 固定資産税
+                        if (housing.propertyTaxYearly) {
+                            amount += housing.propertyTaxYearly;
                         }
-                    }
-                    // 火災保険
-                    if (housing.fireInsuranceYearly) {
-                        amount += housing.fireInsuranceYearly;
+                        // マンション管理費・修繕積立金
+                        if (housing.isApartment) {
+                            amount += (housing.managementFeeMonthly || 0) * 12;
+                            amount += (housing.repairReserveFundMonthly || 0) * 12;
+                        }
+                        // 大規模修繕
+                        if (housing.majorRepairCost && housing.majorRepairInterval && housing.majorRepairStartYear) {
+                            const yearsSinceStart = year - housing.majorRepairStartYear;
+                            if (yearsSinceStart >= 0 && yearsSinceStart % housing.majorRepairInterval === 0) {
+                                amount += housing.majorRepairCost;
+                            }
+                        }
+                        // 火災保険
+                        if (housing.fireInsuranceYearly) {
+                            amount += housing.fireInsuranceYearly;
+                        }
                     }
                     break;
                 }

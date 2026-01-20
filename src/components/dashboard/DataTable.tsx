@@ -201,7 +201,9 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                         fontSize: isSubRow ? '11px' : '13px',
                         color: isSubRow ? '#888' : '#333',
                         cursor: hasSubRows ? 'pointer' : 'default',
+                        width: '140px',
                         minWidth: '140px',
+                        maxWidth: '140px',
                         borderRight: '1px solid #eee',
                         verticalAlign: 'middle'
                     }}
@@ -262,7 +264,13 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                     CSVエクスポート
                 </button>
             </div>
-            <table style={{ borderCollapse: 'collapse', fontSize: '13px', minWidth: 'max-content', width: '100%' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: '13px', minWidth: 'max-content', width: '100%', tableLayout: 'fixed' }}>
+                <colgroup>
+                    <col style={{ width: '140px', minWidth: '140px' }} />
+                    {years.map(year => (
+                        <col key={year} style={{ width: '68px', minWidth: '38px' }} />
+                    ))}
+                </colgroup>
                 <thead>
                     <tr style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
                         <th style={{
@@ -273,7 +281,9 @@ export const DataTable: React.FC<DataTableProps> = ({ data }) => {
                             padding: '12px',
                             color: 'white',
                             fontWeight: 600,
+                            width: '140px',
                             minWidth: '140px',
+                            maxWidth: '140px',
                             borderRight: '1px solid rgba(255,255,255,0.2)'
                         }}>
                             項目 / 年

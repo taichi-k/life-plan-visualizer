@@ -3,8 +3,8 @@ import "./globals.css";
 import { AppLayout } from "../components/layout/AppLayout";
 
 export const metadata: Metadata = {
-  title: "Life Plan Visualizer",
-  description: "Visualize your financial future",
+  title: "ライフプラン シミュレーター",
+  description: "将来の収支・資産推移をシミュレーションできる無料ツールです。データはブラウザにのみ保存され、サーバーには送信されません。",
 };
 
 export default function RootLayout({
@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ja">
       <body>
         <AppLayout>
           {children}

@@ -49,6 +49,94 @@ export const HousingForm: React.FC = () => {
     // 火災保険 (万円単位)
     const [fireInsuranceYearlyMan, setFireInsuranceYearlyMan] = useState(2);
 
+    // 元利均等返済の月額計算（ヘルパー関数）
+    const calcMonthlyPayment = (principal: number, annualRate: number, months: number): number => {
+        if (annualRate === 0 || months === 0) {
+            return months > 0 ? principal / months : 0;
+        }
+        const monthlyRate = annualRate / 100 / 12;
+        return principal * (monthlyRate * Math.pow(1 + monthlyRate, months)) / (Math.pow(1 + monthlyRate, months) - 1);
+    };
+
+    // 変動金利の詳細計算（期間ごとの返済額と総支払額）
+    interface PeriodPayment {
+        startYear: number;
+        endYear: number;
+        interestRate: number;
+        monthlyPayment: number;
+        yearlyPayment: number;
+    }
+
+    const calculateVariableMortgage = (): { periods: PeriodPayment[]; total: number } => {
+        const loanAmount = toYen(loanAmountMan);
+        const loanEndYear = loanStartYear + loanYears;
+        
+        if (!isVariableRate || variableRatePeriods.length === 0) {
+            const monthly = calcMonthlyPayment(loanAmount, loanInterestRate, loanYears * 12);
+            return {
+                periods: [{
+                    startYear: loanStartYear,
+                    endYear: loanEndYear - 1,
+                    interestRate: loanInterestRate,
+                    monthlyPayment: monthly,
+                    yearlyPayment: monthly * 12
+                }],
+                total: monthly * loanYears * 12
+            };
+        }
+
+        // 変動金利: 期間ごとに残債ベースで計算
+        const periods: PeriodPayment[] = [];
+        let remainingPrincipal = loanAmount;
+        let totalPayment = 0;
+
+        for (let year = loanStartYear; year < loanEndYear; year++) {
+            // この年の金利を取得
+            const period = variableRatePeriods.find(p => year >= p.startYear && year <= p.endYear);
+            const currentRate = period?.interestRate ?? loanInterestRate;
+            
+            // 残り返済年数
+            const remainingYears = loanEndYear - year;
+            const remainingMonths = remainingYears * 12;
+            
+            // 月額返済額を計算（残債と残り期間で再計算）
+            const monthlyPayment = calcMonthlyPayment(remainingPrincipal, currentRate, remainingMonths);
+            
+            // この年の返済内訳を計算
+            let yearlyPrincipalPaid = 0;
+            let yearlyInterestPaid = 0;
+            let tempPrincipal = remainingPrincipal;
+            const monthlyRate = currentRate / 100 / 12;
+            
+            for (let m = 0; m < 12 && tempPrincipal > 0; m++) {
+                const interestPart = tempPrincipal * monthlyRate;
+                const principalPart = Math.min(monthlyPayment - interestPart, tempPrincipal);
+                yearlyPrincipalPaid += principalPart;
+                yearlyInterestPaid += interestPart;
+                tempPrincipal -= principalPart;
+            }
+            
+            // 期間情報を追加（同じ金利の期間はまとめる）
+            const lastPeriod = periods[periods.length - 1];
+            if (lastPeriod && lastPeriod.interestRate === currentRate && lastPeriod.endYear === year - 1) {
+                lastPeriod.endYear = year;
+            } else {
+                periods.push({
+                    startYear: year,
+                    endYear: year,
+                    interestRate: currentRate,
+                    monthlyPayment: Math.round(monthlyPayment),
+                    yearlyPayment: Math.round(monthlyPayment * 12)
+                });
+            }
+            
+            totalPayment += yearlyPrincipalPaid + yearlyInterestPaid;
+            remainingPrincipal -= yearlyPrincipalPaid;
+        }
+
+        return { periods, total: Math.round(totalPayment) };
+    };
+
     // ローン返済額のプレビュー計算
     const calculateMortgagePreview = (): { monthly: number; yearly: number; total: number } => {
         const loanAmount = toYen(loanAmountMan);
@@ -62,10 +150,14 @@ export const HousingForm: React.FC = () => {
         const monthlyRate = rate / 100 / 12;
         const totalMonths = loanYears * 12;
         const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+        
+        // 変動金利の場合は詳細計算から総支払額を取得
+        const variableResult = isVariableRate ? calculateVariableMortgage() : null;
+        
         return {
             monthly: Math.round(monthlyPayment),
             yearly: Math.round(monthlyPayment * 12),
-            total: Math.round(monthlyPayment * totalMonths)
+            total: variableResult ? variableResult.total : Math.round(monthlyPayment * totalMonths)
         };
     };
 
@@ -410,12 +502,25 @@ export const HousingForm: React.FC = () => {
                             </div>
                         )}
 
-                        <div className={styles.previewBox}>
-                            <Calculator size={16} />
-                            <span>月々返済{isVariableRate ? '(初期)' : ''}: <strong>{toMan(mortgage.monthly).toFixed(1)}万円</strong></span>
-                            <span>年間: {toMan(mortgage.yearly).toFixed(1)}万円</span>
-                            {!isVariableRate && <span>総支払額: {toMan(mortgage.total).toLocaleString()}万円</span>}
-                            {isVariableRate && <span style={{ color: '#888', fontSize: '11px' }}>※変動金利のため総支払額は目安です</span>}
+                        <div className={styles.previewBox} style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                <Calculator size={16} />
+                                <span>月々返済{isVariableRate ? '(初期)' : ''}: <strong>{toMan(mortgage.monthly).toFixed(1)}万円</strong></span>
+                                <span>年間: {toMan(mortgage.yearly).toFixed(1)}万円</span>
+                                <span>総支払額: <strong>{toMan(mortgage.total).toLocaleString()}万円</strong></span>
+                            </div>
+                            {isVariableRate && variableRatePeriods.length > 0 && (
+                                <div style={{ fontSize: '12px', color: '#666', marginTop: '4px', width: '100%' }}>
+                                    <div style={{ marginBottom: '4px', fontWeight: 500 }}>期間別返済額（目安）:</div>
+                                    {calculateVariableMortgage().periods.map((p, i) => (
+                                        <div key={i} style={{ display: 'flex', gap: '8px', padding: '2px 0', borderBottom: '1px dashed #eee' }}>
+                                            <span style={{ minWidth: '100px' }}>{p.startYear}〜{p.endYear}年</span>
+                                            <span style={{ minWidth: '60px' }}>金利{p.interestRate}%</span>
+                                            <span>月々 <strong>{toMan(p.monthlyPayment).toFixed(1)}万円</strong></span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

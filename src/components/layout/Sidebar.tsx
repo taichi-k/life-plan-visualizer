@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
     Users,
     Wallet,
@@ -17,10 +17,12 @@ import {
     Download,
     Upload,
     Briefcase,
-    Receipt
+    Receipt,
+    HelpCircle
 } from 'lucide-react';
 import styles from './Sidebar.module.css';
 import { useAppStore } from '../../lib/store';
+import { HelpModal } from '../ui/HelpModal';
 
 interface SidebarProps {
     onOpenModal: (type: string, subtype?: string) => void;
@@ -28,6 +30,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
     const { exportData, importData, resetAll } = useAppStore();
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
 
     const handleExport = () => {
         const data = exportData();
@@ -63,7 +66,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
     };
 
     return (
-        <aside className={styles.sidebar}>
+        <aside className={styles.sidebar} suppressHydrationWarning>
             <div className={styles.logoArea}>
                 <div className={styles.logoIcon}>
                     <LayoutDashboard size={24} color="white" />
@@ -71,7 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
                 <span className={styles.logoText}>LifePlan</span>
             </div>
 
-            <nav className={styles.nav}>
+            <nav className={styles.nav} suppressHydrationWarning>
                 <div className={styles.sectionLabel}>ダッシュボード</div>
                 <button className={`${styles.navItem} ${styles.active}`} onClick={() => { }}>
                     <LayoutDashboard size={20} />
@@ -148,6 +151,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenModal }) => {
                     <span>インポート</span>
                 </button>
             </nav>
+
+            <div className={styles.footer}>
+                <button className={styles.helpButton} onClick={() => setIsHelpOpen(true)}>
+                    <HelpCircle size={20} />
+                    <span>使い方・安全性について</span>
+                </button>
+            </div>
+
+            <HelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         </aside>
     );
 };

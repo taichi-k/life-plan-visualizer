@@ -94,3 +94,27 @@
     padding-top: var(--spacing-md);
     border-top: 1px solid rgba(0, 0, 0, 0.05);
 }
+
+.helpButton {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    width: 100%;
+    padding: 14px var(--spacing-md);
+    border-radius: var(--btn-radius);
+    border: 1px dashed rgba(9, 132, 227, 0.3);
+    background: rgba(9, 132, 227, 0.05);
+    color: var(--color-accent-blue);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+}
+
+.helpButton:hover {
+    background: rgba(9, 132, 227, 0.1);
+    border-color: var(--color-accent-blue);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(9, 132, 227, 0.15);
+}

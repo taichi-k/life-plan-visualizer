@@ -166,7 +166,7 @@ export const OtherIncomeForm: React.FC = () => {
                                         </div>
                                     </div>
                                     <div className={styles.editActions}>
-                                        <button className={styles.confirmBtn} onClick={handleSaveEdit}>
+                                        <button className={styles.saveBtn} onClick={handleSaveEdit}>
                                             <Check size={16} /> 確定
                                         </button>
                                         <button className={styles.cancelBtn} onClick={handleCancelEdit}>

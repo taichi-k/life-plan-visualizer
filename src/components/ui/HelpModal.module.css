@@ -1,0 +1,222 @@
+.helpContent {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.sectionHeader h3 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--color-text-main);
+    margin: 0;
+}
+
+.iconBlue {
+    color: var(--color-accent-blue);
+}
+
+.iconGreen {
+    color: #27ae60;
+}
+
+.iconOrange {
+    color: #f39c12;
+}
+
+.description {
+    color: var(--color-text-sub);
+    font-size: 15px;
+    line-height: 1.7;
+    margin: 0;
+}
+
+.featureList {
+    list-style: none;
+    padding: 0;
+    margin: var(--spacing-sm) 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.featureList li {
+    padding-left: 24px;
+    position: relative;
+    color: var(--color-text-sub);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.featureList li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: var(--color-accent-blue);
+    font-weight: 600;
+}
+
+.safetyBox {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+}
+
+.safetyItem {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(39, 174, 96, 0.08);
+    border-radius: var(--card-radius);
+    font-size: 14px;
+    color: var(--color-text-main);
+}
+
+.note {
+    font-size: 14px;
+    color: var(--color-text-sub);
+    line-height: 1.7;
+    margin: var(--spacing-xs) 0 0 0;
+    padding: var(--spacing-md);
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: var(--card-radius);
+    border-left: 3px solid var(--color-accent-blue);
+}
+
+.storageInfo {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-xs);
+}
+
+.infoCard {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: rgba(9, 132, 227, 0.05);
+    border-radius: var(--card-radius);
+}
+
+.infoCard strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 4px;
+}
+
+.infoCard p {
+    font-size: 13px;
+    color: var(--color-text-sub);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.warningList {
+    list-style: none;
+    padding: 0;
+    margin: var(--spacing-xs) 0 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.warningList li {
+    padding: var(--spacing-sm) var(--spacing-md);
+    padding-left: calc(var(--spacing-md) + 20px);
+    position: relative;
+    background: rgba(243, 156, 18, 0.08);
+    border-radius: var(--card-radius);
+    font-size: 14px;
+    color: var(--color-text-main);
+}
+
+.warningList li::before {
+    content: '⚠';
+    position: absolute;
+    left: var(--spacing-md);
+    color: #f39c12;
+}
+
+.backupSteps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+}
+
+.step {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: white;
+    border-radius: var(--card-radius);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.stepIcon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--color-accent-blue), var(--color-accent-blue-soft));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+}
+
+.stepContent strong {
+    display: block;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-main);
+    margin-bottom: 4px;
+}
+
+.stepContent p {
+    font-size: 13px;
+    color: var(--color-text-sub);
+    margin: 0;
+    line-height: 1.6;
+}
+
+.footer {
+    text-align: center;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.footer p {
+    font-size: 13px;
+    color: var(--color-text-sub);
+    margin: 0;
+}
+
+/* レスポンシブ */
+@media (max-width: 600px) {
+    .safetyBox {
+        grid-template-columns: 1fr;
+    }
+
+    .storageInfo {
+        grid-template-columns: 1fr;
+    }
+}

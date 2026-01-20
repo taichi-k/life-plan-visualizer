@@ -30,24 +30,14 @@ export default function Home() {
     return calculateLifePlan(family, incomes, expenses, assets, events, settings);
   }, [family, incomes, expenses, assets, events, settings]);
 
-  if (!hydrated) {
-    return (
-      <div className={styles.container}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>ライフプラン シミュレーション</h1>
-          <p className={styles.subtitle}>読み込み中...</p>
-        </header>
-      </div>
-    );
-  }
-
   return (
     <div className={styles.container}>
       <header className={styles.header}>
-        <h1 className={styles.title}>ライフプラン シミュレーション</h1>
-        <p className={styles.subtitle}>
-          現在の入力情報を元にした将来の資産推移シミュレーションです。
-          (期間: {settings.calculationStartYear}年 - {settings.calculationEndYear}年)
+        <h1 className={styles.title} suppressHydrationWarning>ライフプラン シミュレーション</h1>
+        <p className={styles.subtitle} suppressHydrationWarning>
+          {hydrated
+            ? `現在の入力情報を元にした将来の資産推移シミュレーションです。(期間: ${settings.calculationStartYear}年 - ${settings.calculationEndYear}年)`
+            : '読み込み中...'}
         </p>
       </header>
 
