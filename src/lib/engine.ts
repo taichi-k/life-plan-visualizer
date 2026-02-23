@@ -468,6 +468,8 @@ export function calculateLifePlan(
     
     // インフレ率（設定がない場合は0%）
     const inflationRate = (settings.inflationRate || 0) / 100;
+    // 収入上昇率（設定がない場合は0%）
+    const incomeGrowthRate = (settings.incomeGrowthRate || 0) / 100;
 
     for (let year = startYear; year <= endYear; year++) {
         // インフレ係数を計算（基準年からの経過年数に応じて）
@@ -530,6 +532,11 @@ export function calculateLifePlan(
                         const exact = salaryIncome.ageCurve.find(c => c.age === ownerAge);
                         amount = exact?.annualAmount || 0;
                     }
+                    // 収入上昇率を適用（年齢カーブで設定された額をベースに経年上昇）
+                    if (amount > 0 && incomeGrowthRate > 0) {
+                        const incomeGrowthFactor = Math.pow(1 + incomeGrowthRate, yearsFromStart);
+                        amount = amount * incomeGrowthFactor;
+                    }
                     
                     // 税・社会保険料の自動計算（年齢考慮）
                     if (amount > 0 && salaryIncome.autoCalculateTax !== false) {
@@ -589,6 +596,10 @@ export function calculateLifePlan(
                     if (otherIncome.startYear && year < otherIncome.startYear) break;
                     if (otherIncome.endYear && year > otherIncome.endYear) break;
                     amount = otherIncome.periodicity === 'monthly' ? otherIncome.amount * 12 : otherIncome.amount;
+                    // 事業所得・その他収入にも収入上昇率を適用
+                    if (amount > 0 && incomeGrowthRate > 0) {
+                        amount = amount * Math.pow(1 + incomeGrowthRate, yearsFromStart);
+                    }
                     break;
                 }
             }
@@ -659,8 +670,8 @@ export function calculateLifePlan(
                     if (housing.housingType === 'rent') {
                         if (housing.rentStartYear && year < housing.rentStartYear) break;
                         if (housing.rentEndYear && year > housing.rentEndYear) break;
-                        // 賃貸料は固定（契約更新時の値上げは個別に設定で対応）
-                        amount = (housing.monthlyRent || 0) * 12;
+                        // 賃貸料にインフレ率を適用（更新ごとに家賃が上昇する想定）
+                        amount = (housing.monthlyRent || 0) * 12 * inflationFactor;
                     } else if (housing.housingType === 'owned-loan') {
                         if (housing.loanStartYear && housing.loanAmount && housing.loanYears) {
                             const loanEndYear = housing.loanStartYear + housing.loanYears;
@@ -701,25 +712,25 @@ export function calculateLifePlan(
                     }
                     // 持ち家の場合のみ（持ち家期間中のみ）固定資産税・管理費等を加算
                     if (isOwnedPeriod) {
-                        // 固定資産税
+                        // 固定資産税（評価替えによる上昇をインフレで近似）
                         if (housing.propertyTaxYearly) {
-                            amount += housing.propertyTaxYearly;
+                            amount += housing.propertyTaxYearly * inflationFactor;
                         }
-                        // マンション管理費・修繕積立金
+                        // マンション管理費・修繕積立金（長期的に上昇傾向）
                         if (housing.isApartment) {
-                            amount += (housing.managementFeeMonthly || 0) * 12;
-                            amount += (housing.repairReserveFundMonthly || 0) * 12;
+                            amount += (housing.managementFeeMonthly || 0) * 12 * inflationFactor;
+                            amount += (housing.repairReserveFundMonthly || 0) * 12 * inflationFactor;
                         }
-                        // 大規模修繕
+                        // 大規模修繕（工事費はインフレの影響を受ける）
                         if (housing.majorRepairCost && housing.majorRepairInterval && housing.majorRepairStartYear) {
                             const yearsSinceStart = year - housing.majorRepairStartYear;
                             if (yearsSinceStart >= 0 && yearsSinceStart % housing.majorRepairInterval === 0) {
-                                amount += housing.majorRepairCost;
+                                amount += housing.majorRepairCost * inflationFactor;
                             }
                         }
-                        // 火災保険
+                        // 火災保険（再調達価額の上昇に連動）
                         if (housing.fireInsuranceYearly) {
-                            amount += housing.fireInsuranceYearly;
+                            amount += housing.fireInsuranceYearly * inflationFactor;
                         }
                     }
                     break;
@@ -729,7 +740,8 @@ export function calculateLifePlan(
                     const child = family.find(f => f.id === education.childId);
                     if (child) {
                         const childAge = year - child.birthYear;
-                        amount = calculateEducationCost(education, childAge);
+                        // 教育費にインフレを適用（学費・教材費は物価連動で上昇）
+                        amount = calculateEducationCost(education, childAge) * inflationFactor;
                     }
                     break;
                 }
@@ -756,7 +768,8 @@ export function calculateLifePlan(
                     const insurance = expense as InsuranceExpense;
                     if (insurance.startYear && year < insurance.startYear) break;
                     if (insurance.endYear && year > insurance.endYear) break;
-                    amount = insurance.monthlyPremium * 12;
+                    // 保険料にインフレを適用（医療費上昇に伴う保険料改定を反映）
+                    amount = insurance.monthlyPremium * 12 * inflationFactor;
                     break;
                 }
                 case 'car': {
@@ -764,12 +777,12 @@ export function calculateLifePlan(
                     if (!car.hasCar) break;
                     if (car.startYear && year < car.startYear) break;
                     if (car.endYear && year > car.endYear) break;
-                    // 維持費（ガソリン代にはインフレを適用）
-                    amount += car.taxYearly || 0;
-                    amount += car.insuranceYearly || 0;
-                    amount += car.maintenanceYearly || 0;
-                    amount += (car.gasMonthly || 0) * 12 * inflationFactor; // ガソリン代はインフレ影響
-                    amount += (car.parkingMonthly || 0) * 12;
+                    // 維持費（全項目にインフレを適用）
+                    amount += (car.taxYearly || 0) * inflationFactor;
+                    amount += (car.insuranceYearly || 0) * inflationFactor;
+                    amount += (car.maintenanceYearly || 0) * inflationFactor;
+                    amount += (car.gasMonthly || 0) * 12 * inflationFactor;
+                    amount += (car.parkingMonthly || 0) * 12 * inflationFactor;
                     // 車購入（購入価格にもインフレを適用）
                     if (car.purchaseYear && car.purchasePrice && car.replacementInterval) {
                         const yearsSincePurchase = year - car.purchaseYear;
@@ -784,7 +797,8 @@ export function calculateLifePlan(
                     const allowance = expense as AllowanceExpense;
                     if (allowance.startYear && year < allowance.startYear) break;
                     if (allowance.endYear && year > allowance.endYear) break;
-                    amount = allowance.monthlyAmount * 12;
+                    // お小遣いにインフレを適用
+                    amount = allowance.monthlyAmount * 12 * inflationFactor;
                     break;
                 }
                 case 'living': {
@@ -832,13 +846,13 @@ export function calculateLifePlan(
                     if (generic.intervalYears && generic.intervalYears > 1) {
                         const baseYear = generic.startYear || settings.calculationStartYear;
                         const yearsSinceBase = year - baseYear;
-                        // 周期に該当する年のみ計上
+                        // 周期に該当する年のみ計上（インフレ適用）
                         if (yearsSinceBase >= 0 && yearsSinceBase % generic.intervalYears === 0) {
-                            amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                            amount = (generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount) * inflationFactor;
                         }
                     } else {
-                        // 毎年の支出
-                        amount = generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount;
+                        // 毎年の支出（インフレ適用）
+                        amount = (generic.periodicity === 'monthly' ? generic.amount * 12 : generic.amount) * inflationFactor;
                     }
                     break;
                 }
@@ -867,15 +881,17 @@ export function calculateLifePlan(
             }
 
             if (applyEvent) {
+                // ライフイベントにインフレを適用（将来の費用は物価上昇を反映）
+                const eventCost = event.cost * inflationFactor;
                 // 車購入イベントの場合は'car'カテゴリに計上
                 if (event.eventType === 'car-purchase') {
-                    yearResults.expenses['car'] = (yearResults.expenses['car'] || 0) + event.cost;
-                    yearResults.expenseDetails.push({ name: event.name, category: 'car', amount: event.cost });
+                    yearResults.expenses['car'] = (yearResults.expenses['car'] || 0) + eventCost;
+                    yearResults.expenseDetails.push({ name: event.name, category: 'car', amount: eventCost });
                 } else {
-                    yearResults.expenses['event'] = (yearResults.expenses['event'] || 0) + event.cost;
-                    yearResults.expenseDetails.push({ name: event.name, category: 'event', amount: event.cost });
+                    yearResults.expenses['event'] = (yearResults.expenses['event'] || 0) + eventCost;
+                    yearResults.expenseDetails.push({ name: event.name, category: 'event', amount: eventCost });
                 }
-                yearResults.totalExpense += event.cost;
+                yearResults.totalExpense += eventCost;
                 yearResults.events.push(event.name);
             }
 
@@ -891,14 +907,14 @@ export function calculateLifePlan(
                         ? yearsSincePurchase % event.recurrenceInterval 
                         : yearsSincePurchase;
                     
-                    // 買い替え間隔内なら維持費を計上
+                    // 買い替え間隔内なら維持費を計上（インフレ適用）
                     if (cyclePosition >= 0 && cyclePosition < interval) {
                         const maint = event.carMaintenance;
                         const yearlyMaintenance = 
-                            maint.taxYearly + 
+                            (maint.taxYearly + 
                             maint.insuranceYearly + 
                             maint.maintenanceYearly + 
-                            (maint.gasMonthly + maint.parkingMonthly) * 12;
+                            (maint.gasMonthly + maint.parkingMonthly) * 12) * inflationFactor;
                         
                         yearResults.expenses['car'] = (yearResults.expenses['car'] || 0) + yearlyMaintenance;
                         yearResults.expenseDetails.push({ 

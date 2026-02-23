@@ -42,7 +42,22 @@ export const SettingsForm: React.FC = () => {
                     onChange={(e) => handleChange('inflationRate', Number(e.target.value))}
                 />
                 <small className={styles.hint}>
-                    生活費・光熱費・通信費・医療費・賃貸料などに適用されます
+                    生活費・光熱費・通信費・医療費・賃貸料・教育費・保険料・お小遣い・住居維持費・ライフイベントなど全支出に適用されます
+                </small>
+            </div>
+
+            <div className={styles.formGroup}>
+                <label>収入上昇率 (年率 %)</label>
+                <input
+                    type="number"
+                    step="0.1"
+                    min="-5"
+                    max="10"
+                    value={settings.incomeGrowthRate ?? 0}
+                    onChange={(e) => handleChange('incomeGrowthRate', Number(e.target.value))}
+                />
+                <small className={styles.hint}>
+                    給与・事業所得などに適用されます（年金・退職金には適用されません）
                 </small>
             </div>
 
