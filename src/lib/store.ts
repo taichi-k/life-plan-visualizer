@@ -99,7 +99,7 @@ export const useAppStore = create<AppState>()(
 
             addEvent: (event) => set((state) => ({ events: [...state.events, event] })),
             updateEvent: (id, updatedEvent) => set((state) => ({
-                events: state.events.map((e) => (e.id === id ? { ...e, ...updatedEvent } : e))
+                events: state.events.map((e) => (e.id === id ? { ...updatedEvent as LifeEvent } : e))
             })),
             removeEvent: (id) => set((state) => ({
                 events: state.events.filter((e) => e.id !== id)
