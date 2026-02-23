@@ -952,14 +952,15 @@ export function calculateLifePlan(
                 yearResults.events.push(event.name);
             }
 
-            // 車購入イベントの維持費計算（購入年以降、次の買い替えまで毎年）
+            // 車購入イベントの維持費計算（購入年以降、次の買い替えまで or 終了年まで毎年）
             if (event.eventType === 'car-purchase' && event.carMaintenance) {
                 const purchaseYear = event.year;
+                const maintenanceEndYear = event.endYear || settings.calculationEndYear;
                 const interval = event.isRecurring && event.recurrenceInterval ? event.recurrenceInterval : 100; // 買い替えなければ100年
                 const yearsSincePurchase = year - purchaseYear;
                 
-                // 購入年以降で、次の買い替え前まで（繰り返しの場合は各周期内で適用）
-                if (yearsSincePurchase >= 0) {
+                // 購入年以降で、終了年以内、次の買い替え前まで（繰り返しの場合は各周期内で適用）
+                if (yearsSincePurchase >= 0 && year <= maintenanceEndYear) {
                     const cyclePosition = event.isRecurring && event.recurrenceInterval 
                         ? yearsSincePurchase % event.recurrenceInterval 
                         : yearsSincePurchase;

@@ -32,6 +32,7 @@ export const LifeEventForm: React.FC = () => {
     const [costMan, setCostMan] = useState(100);
     const [isRecurring, setIsRecurring] = useState(false);
     const [interval, setInterval] = useState(10);
+    const [endYear, setEndYear] = useState<number | ''>('');
 
     // 車購入時の維持費設定 (万円単位)
     const [carTaxYearlyMan, setCarTaxYearlyMan] = useState(4);
@@ -48,6 +49,7 @@ export const LifeEventForm: React.FC = () => {
     const [editCostMan, setEditCostMan] = useState(0);
     const [editIsRecurring, setEditIsRecurring] = useState(false);
     const [editInterval, setEditInterval] = useState(10);
+    const [editEndYear, setEditEndYear] = useState<number | ''>('');
     const [editCarTaxYearlyMan, setEditCarTaxYearlyMan] = useState(0);
     const [editCarInsuranceYearlyMan, setEditCarInsuranceYearlyMan] = useState(0);
     const [editCarMaintenanceYearlyMan, setEditCarMaintenanceYearlyMan] = useState(0);
@@ -74,6 +76,7 @@ export const LifeEventForm: React.FC = () => {
             cost: toYen(costMan),
             isRecurring,
             recurrenceInterval: isRecurring ? interval : undefined,
+            endYear: endYear !== '' ? endYear : undefined,
             carMaintenance: eventType === 'car-purchase' ? {
                 taxYearly: toYen(carTaxYearlyMan),
                 insuranceYearly: toYen(carInsuranceYearlyMan),
@@ -85,6 +88,7 @@ export const LifeEventForm: React.FC = () => {
         addEvent(event);
         setName('');
         setCostMan(100);
+        setEndYear('');
     };
 
     const handleStartEdit = (item: LifeEvent) => {
@@ -95,6 +99,7 @@ export const LifeEventForm: React.FC = () => {
         setEditCostMan(toMan(item.cost));
         setEditIsRecurring(item.isRecurring);
         setEditInterval(item.recurrenceInterval ?? 10);
+        setEditEndYear(item.endYear ?? '');
         setEditCarTaxYearlyMan(toMan(item.carMaintenance?.taxYearly ?? 40000));
         setEditCarInsuranceYearlyMan(toMan(item.carMaintenance?.insuranceYearly ?? 80000));
         setEditCarMaintenanceYearlyMan(toMan(item.carMaintenance?.maintenanceYearly ?? 100000));
@@ -112,6 +117,7 @@ export const LifeEventForm: React.FC = () => {
             cost: toYen(editCostMan),
             isRecurring: editIsRecurring,
             recurrenceInterval: editIsRecurring ? editInterval : undefined,
+            endYear: editEndYear !== '' ? editEndYear : undefined,
             carMaintenance: editEventType === 'car-purchase' ? {
                 taxYearly: toYen(editCarTaxYearlyMan),
                 insuranceYearly: toYen(editCarInsuranceYearlyMan),
@@ -179,6 +185,14 @@ export const LifeEventForm: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
+                                {(editIsRecurring || editEventType === 'car-purchase') && (
+                                    <div className={styles.row}>
+                                        <div className={styles.formGroup}>
+                                            <label>終了年 {editEventType === 'car-purchase' ? '（維持費終了年）' : ''}</label>
+                                            <input type="number" value={editEndYear} onChange={(e) => setEditEndYear(e.target.value === '' ? '' : Number(e.target.value))} placeholder="未設定（シミュレーション終了まで）" />
+                                        </div>
+                                    </div>
+                                )}
                                 {editEventType === 'car-purchase' && (
                                     <>
                                         <div className={styles.sectionTitle}><Car size={16} /> 自動車維持費</div>
@@ -224,7 +238,7 @@ export const LifeEventForm: React.FC = () => {
                                 <div className={styles.itemInfo}>
                                     <span className={styles.itemName}>{item.name}</span>
                                     <span className={styles.itemDetail}>
-                                        {getEventTypeLabel(item.eventType)} | {item.year}年 | {toMan(item.cost).toFixed(1)}万円 | {item.isRecurring ? `${item.recurrenceInterval}年ごと` : '一回限り'}
+                                        {getEventTypeLabel(item.eventType)} | {item.year}年{item.endYear ? `〜${item.endYear}年` : ''} | {toMan(item.cost).toFixed(1)}万円 | {item.isRecurring ? `${item.recurrenceInterval}年ごと` : '一回限り'}
                                         {item.eventType === 'car-purchase' && item.carMaintenance && (
                                             <> | 維持費 {toMan(calcCarYearlyCost(item.carMaintenance.taxYearly, item.carMaintenance.insuranceYearly, item.carMaintenance.maintenanceYearly, item.carMaintenance.gasMonthly, item.carMaintenance.parkingMonthly)).toFixed(1)}万円/年</>
                                         )}
@@ -279,6 +293,14 @@ export const LifeEventForm: React.FC = () => {
                         </div>
                     )}
                 </div>
+                {(isRecurring || eventType === 'car-purchase') && (
+                    <div className={styles.row}>
+                        <div className={styles.formGroup}>
+                            <label>終了年 {eventType === 'car-purchase' ? '（維持費終了年）' : ''}</label>
+                            <input type="number" value={endYear} onChange={(e) => setEndYear(e.target.value === '' ? '' : Number(e.target.value))} placeholder="未設定（シミュレーション終了まで）" />
+                        </div>
+                    </div>
+                )}
 
                 {eventType === 'car-purchase' && (
                     <>
