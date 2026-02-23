@@ -1026,65 +1026,110 @@ export function calculateLifePlan(
             ? results[results.length - 1].totalAssets 
             : initialAssets.reduce((sum, a) => sum + a.currentValue, 0);
 
-        // 積立投資の合計を先に計算（現金から引くため）
-        let totalContributionFromCash = 0;
         if (initialAssets.length > 0) {
+            // Step 1: 現金残高を仮計算して、積立投資が可能か判定
+            let cashVal = currentAssets[cashAssetId || ''] || 0;
+            cashVal += yearResults.cashFlow;
+            
+            // 積立可能額を計算（現金残高が足りない場合は積立を縮小・停止）
+            let totalDesiredContribution = 0;
+            const assetContributions: Record<string, number> = {};
             initialAssets.forEach(asset => {
                 if (asset.isAccumulating && asset.monthlyContribution) {
-                    const startYear = asset.accumulationStartYear || settings.calculationStartYear;
-                    const endYear = asset.accumulationEndYear || settings.calculationEndYear;
-                    if (year >= startYear && year <= endYear) {
-                        totalContributionFromCash += asset.monthlyContribution * 12;
+                    const aStartYear = asset.accumulationStartYear || settings.calculationStartYear;
+                    const aEndYear = asset.accumulationEndYear || settings.calculationEndYear;
+                    if (year >= aStartYear && year <= aEndYear) {
+                        const desired = asset.monthlyContribution * 12;
+                        assetContributions[asset.id] = desired;
+                        totalDesiredContribution += desired;
                     }
                 }
             });
-        }
 
-        if (initialAssets.length > 0) {
+            // 積立後の現金残高を予測
+            let actualTotalContribution = totalDesiredContribution;
+            if (cashVal - totalDesiredContribution < 0) {
+                // 現金が足りない → 積立を可能な範囲に縮小（0以上）
+                actualTotalContribution = Math.max(0, cashVal);
+                // 各資産の積立を按分で縮小
+                if (totalDesiredContribution > 0) {
+                    const ratio = actualTotalContribution / totalDesiredContribution;
+                    Object.keys(assetContributions).forEach(id => {
+                        assetContributions[id] = Math.floor(assetContributions[id] * ratio);
+                    });
+                }
+            }
+
+            // Step 2: 各資産の運用益・積立を計算
             initialAssets.forEach(asset => {
                 let val = currentAssets[asset.id];
-                const originalValue = asset.currentValue; // 元本（単利計算用）
+                const originalValue = asset.currentValue;
 
                 // 複利か単利かで計算方法を分岐
                 let interestGain = 0;
-                if (asset.isCompounding !== false) {
-                    // 複利: 現在の残高に対して利息を計算
-                    interestGain = val * (asset.annualInterestRate / 100);
-                } else {
-                    // 単利: 元本に対してのみ利息を計算
-                    interestGain = originalValue * (asset.annualInterestRate / 100);
+                if (val > 0) {
+                    if (asset.isCompounding !== false) {
+                        interestGain = val * (asset.annualInterestRate / 100);
+                    } else {
+                        interestGain = originalValue * (asset.annualInterestRate / 100);
+                    }
                 }
                 val += interestGain;
                 totalInterestGain += interestGain;
 
-                // 積立投資（投資資産に加算）
-                if (asset.isAccumulating && asset.monthlyContribution) {
-                    const startYear = asset.accumulationStartYear || settings.calculationStartYear;
-                    const endYear = asset.accumulationEndYear || settings.calculationEndYear;
-                    if (year >= startYear && year <= endYear) {
-                        const contribution = asset.monthlyContribution * 12;
-                        val += contribution;
-                        totalAccumulationContribution += contribution;
-                        
-                        // 積立分の年内利息（平均6ヶ月分として概算）
-                        if (asset.isCompounding !== false && asset.annualInterestRate > 0) {
-                            const contributionInterest = contribution * (asset.annualInterestRate / 100) * 0.5;
-                            val += contributionInterest;
-                            totalInterestGain += contributionInterest;
-                        }
+                // 積立投資（縮小後の額を適用）
+                const contribution = assetContributions[asset.id] || 0;
+                if (contribution > 0) {
+                    val += contribution;
+                    totalAccumulationContribution += contribution;
+                    
+                    // 積立分の年内利息（平均6ヶ月分として概算）
+                    if (asset.isCompounding !== false && asset.annualInterestRate > 0) {
+                        const contributionInterest = contribution * (asset.annualInterestRate / 100) * 0.5;
+                        val += contributionInterest;
+                        totalInterestGain += contributionInterest;
                     }
                 }
 
                 // キャッシュフローを現金資産に反映し、積立投資分を差し引く
                 if (asset.id === cashAssetId) {
                     val += yearResults.cashFlow;
-                    val -= totalContributionFromCash; // 積立投資分を現金から差し引く
+                    val -= actualTotalContribution;
                 }
 
                 currentAssets[asset.id] = val;
                 yearResults.assets[asset.id] = val;
                 totalAssetsVal += val;
             });
+
+            // Step 3: 現金がマイナスの場合、投資資産を取り崩して補填
+            if (cashAssetId && currentAssets[cashAssetId] < 0) {
+                const deficit = -currentAssets[cashAssetId]; // 不足額（正の値）
+                let remainingDeficit = deficit;
+
+                // 流動性の高い順に取り崩し（cash/deposit以外の資産）
+                // 利率が低い資産から優先的に取り崩す（効率的な資産管理）
+                const liquidatableAssets = initialAssets
+                    .filter(a => a.id !== cashAssetId && currentAssets[a.id] > 0)
+                    .sort((a, b) => a.annualInterestRate - b.annualInterestRate);
+
+                for (const asset of liquidatableAssets) {
+                    if (remainingDeficit <= 0) break;
+                    const available = currentAssets[asset.id];
+                    const liquidateAmount = Math.min(available, remainingDeficit);
+                    
+                    currentAssets[asset.id] -= liquidateAmount;
+                    yearResults.assets[asset.id] = currentAssets[asset.id];
+                    
+                    remainingDeficit -= liquidateAmount;
+                }
+
+                // 取り崩し分を現金に加算
+                const actualLiquidation = deficit - remainingDeficit;
+                currentAssets[cashAssetId] += actualLiquidation;
+                yearResults.assets[cashAssetId] = currentAssets[cashAssetId];
+                // 注: totalAssetsValは変わらない（資産間の移動のため）
+            }
         } else {
             virtualSavings += yearResults.cashFlow;
             yearResults.assets['virtual'] = virtualSavings;
