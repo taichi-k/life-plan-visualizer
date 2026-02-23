@@ -29,7 +29,7 @@ import {
 } from './types';
 
 // 退職所得税を計算（退職所得控除を適用）
-function calculateRetirementTax(retirementAmount: number, yearsOfService: number): number {
+function calculateRetirementTax(retirementAmount: number, yearsOfService: number, year: number): number {
     // 退職所得控除を計算
     let retirementDeduction = 0;
     if (yearsOfService <= 20) {
@@ -62,8 +62,10 @@ function calculateRetirementTax(retirementAmount: number, yearsOfService: number
         incomeTax = retirementIncome * 0.45 - 4796000;
     }
     
-    // 復興特別所得税（2.1%）
-    incomeTax = incomeTax * 1.021;
+    // 復興特別所得税（2.1%）- 2037年まで
+    if (year <= 2037) {
+        incomeTax = incomeTax * 1.021;
+    }
     
     // 住民税（10%、退職所得に対して）
     const residenceTax = retirementIncome * 0.10;
@@ -127,20 +129,39 @@ function calculatePension(pension: PensionIncome, age: number): number {
         return pension.customAmount;
     }
 
-    let total = 0;
+    let publicPensionTotal = 0;
 
     // 国民年金（老齢基礎年金）
     if (pension.nationalPensionYears) {
         const ratio = Math.min(pension.nationalPensionYears, PENSION_CONSTANTS.nationalPensionMaxYears) 
                       / PENSION_CONSTANTS.nationalPensionMaxYears;
-        total += PENSION_CONSTANTS.nationalPensionFullAmount * ratio;
+        publicPensionTotal += PENSION_CONSTANTS.nationalPensionFullAmount * ratio;
     }
 
     // 厚生年金（報酬比例部分）
     if (pension.employeePensionYears && pension.averageMonthlyIncome) {
-        total += pension.averageMonthlyIncome * PENSION_CONSTANTS.employeePensionMultiplier 
+        publicPensionTotal += pension.averageMonthlyIncome * PENSION_CONSTANTS.employeePensionMultiplier 
                  * pension.employeePensionYears * 12;
     }
+
+    // 繰上げ・繰下げ受給の調整（公的年金のみ）
+    // 繰上げ: 65歳より前 → 1ヶ月あたり0.4%減額（2022年4月以降、最大60ヶ月=24%減）
+    // 繰下げ: 65歳より後 → 1ヶ月あたり0.7%増額（最大75歳=120ヶ月=84%増）
+    const standardPensionAge = 65;
+    if (pension.startAge !== standardPensionAge && publicPensionTotal > 0) {
+        const monthsDiff = (pension.startAge - standardPensionAge) * 12;
+        if (monthsDiff < 0) {
+            // 繰上げ受給
+            const reductionRate = Math.min(Math.abs(monthsDiff) * 0.004, 0.24);
+            publicPensionTotal *= (1 - reductionRate);
+        } else {
+            // 繰下げ受給
+            const cappedMonths = Math.min(monthsDiff, 120);
+            publicPensionTotal *= (1 + cappedMonths * 0.007);
+        }
+    }
+
+    let total = publicPensionTotal;
 
     // 企業年金
     if (pension.hasCorporatePension && pension.corporatePensionAmount) {
@@ -151,7 +172,7 @@ function calculatePension(pension: PensionIncome, age: number): number {
 }
 
 // 年金所得税を計算（公的年金等控除を適用）
-function calculatePensionTax(annualPension: number, age: number): number {
+function calculatePensionTax(annualPension: number, age: number, year: number): number {
     // 公的年金等控除を計算（65歳以上と未満で異なる）
     let pensionDeduction = 0;
     
@@ -215,8 +236,10 @@ function calculatePensionTax(annualPension: number, age: number): number {
         tax = taxableIncome * 0.45 - 4796000;
     }
     
-    // 復興特別所得税（2.1%）
-    tax = tax * 1.021;
+    // 復興特別所得税（2.1%）- 2037年まで
+    if (year <= 2037) {
+        tax = tax * 1.021;
+    }
     
     // 住民税（約10%）
     const residenceTax = taxableIncome * 0.10;
@@ -268,7 +291,7 @@ function calculateMortgagePayment(
 }
 
 // 所得税を計算（累進課税）
-function calculateIncomeTax(annualIncome: number): number {
+function calculateIncomeTax(annualIncome: number, year: number): number {
     // 給与所得控除を適用
     let salaryDeduction = 0;
     if (annualIncome <= 1625000) {
@@ -307,8 +330,10 @@ function calculateIncomeTax(annualIncome: number): number {
         tax = taxableIncome * 0.45 - 4796000;
     }
 
-    // 復興特別所得税（2.1%）
-    tax = tax * 1.021;
+    // 復興特別所得税（2.1%）- 2037年まで
+    if (year <= 2037) {
+        tax = tax * 1.021;
+    }
 
     // 住民税（約10%）
     const residenceTax = taxableIncome * 0.10;
@@ -514,6 +539,8 @@ export function calculateLifePlan(
         let pensionTaxExpenses: { name: string; pensionTax: number }[] = [];
         // 退職所得の税計算用
         let retirementTaxExpenses: { name: string; retirementTax: number }[] = [];
+        // 投資所得の源泉分離課税用
+        let investmentTaxExpenses: { name: string; investmentTax: number }[] = [];
         
         incomes.forEach(income => {
             let amount = 0;
@@ -540,7 +567,7 @@ export function calculateLifePlan(
                     
                     // 税・社会保険料の自動計算（年齢考慮）
                     if (amount > 0 && salaryIncome.autoCalculateTax !== false) {
-                        const incomeTax = calculateIncomeTax(amount);
+                        const incomeTax = calculateIncomeTax(amount, year);
                         const socialInsurance = calculateSocialInsurance(amount, ownerAge);
                         salaryTaxExpenses.push({
                             name: `${salaryIncome.name}の税・社保`,
@@ -555,7 +582,7 @@ export function calculateLifePlan(
                     amount = calculatePension(pensionIncome, ownerAge);
                     // 年金にかかる税金を計算
                     if (amount > 0) {
-                        const pensionTax = calculatePensionTax(amount, ownerAge);
+                        const pensionTax = calculatePensionTax(amount, ownerAge, year);
                         if (pensionTax > 0) {
                             pensionTaxExpenses.push({
                                 name: `${pensionIncome.name}の税金`,
@@ -573,7 +600,7 @@ export function calculateLifePlan(
                         // 勤続年数が未指定の場合、給与所得の開始〜終了年齢から推定
                         const yearsOfService = retirementIncome.yearsOfService || 
                             estimateYearsOfService(incomes, retirementIncome.ownerId);
-                        const retirementTax = calculateRetirementTax(amount, yearsOfService);
+                        const retirementTax = calculateRetirementTax(amount, yearsOfService, year);
                         if (retirementTax > 0) {
                             retirementTaxExpenses.push({
                                 name: `${retirementIncome.name}の退職所得税`,
@@ -588,6 +615,14 @@ export function calculateLifePlan(
                     if (investmentIncome.startYear && year < investmentIncome.startYear) break;
                     if (investmentIncome.endYear && year > investmentIncome.endYear) break;
                     amount = investmentIncome.annualAmount;
+                    // 配当・利子所得に対する源泉分離課税（20.315%）
+                    if (amount > 0) {
+                        const investmentTax = Math.floor(amount * 0.20315);
+                        investmentTaxExpenses.push({
+                            name: `${investmentIncome.name}の源泉税`,
+                            investmentTax
+                        });
+                    }
                     break;
                 }
                 case 'business':
@@ -649,6 +684,19 @@ export function calculateLifePlan(
                     amount: taxExp.retirementTax 
                 });
                 yearResults.totalExpense += taxExp.retirementTax;
+            }
+        });
+
+        // ================== 投資所得からの源泉税を自動計上 ==================
+        investmentTaxExpenses.forEach(taxExp => {
+            if (taxExp.investmentTax > 0) {
+                yearResults.expenses['tax'] = (yearResults.expenses['tax'] || 0) + taxExp.investmentTax;
+                yearResults.expenseDetails.push({ 
+                    name: taxExp.name, 
+                    category: 'tax', 
+                    amount: taxExp.investmentTax 
+                });
+                yearResults.totalExpense += taxExp.investmentTax;
             }
         });
 
@@ -841,6 +889,15 @@ export function calculateLifePlan(
                     const generic = expense as GenericExpense;
                     if (generic.startYear && year < generic.startYear) break;
                     if (generic.endYear && year > generic.endYear) break;
+                    
+                    // 一回限りの支出は対象年のみ計上
+                    if (generic.periodicity === 'one-time') {
+                        const targetYear = generic.startYear || settings.calculationStartYear;
+                        if (year === targetYear) {
+                            amount = generic.amount * inflationFactor;
+                        }
+                        break;
+                    }
                     
                     // 周期的な支出（intervalYearsが設定されている場合）
                     if (generic.intervalYears && generic.intervalYears > 1) {
